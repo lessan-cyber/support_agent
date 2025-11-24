@@ -48,7 +48,7 @@
 
   * **`tenants`**: `id` (PK), `name`, `plan`.
   * **`users`**: `id` (Linked to `auth.users`), `tenant_id` (FK), `role`.
-  * **`documents`**: `id`, `tenant_id` (FK), `content`, `embedding` (1536), `metadata`.
+  * **`documents`**: `id`, `tenant_id` (FK), `content`, `embedding` (1536), `additional_data`.
   * **`tickets`**: `id`, `tenant_id` (FK), `status` (`open`, `pending_human`, `resolved`), `user_email`.
   * **`messages`**: `id`, `ticket_id` (FK), `tenant_id` (FK), `sender_type`, `content`.
 
