@@ -1,0 +1,122 @@
+# CodeRabbit Configuration for Multi-tenant AI Support Agent
+# Optimized for Python/FastAPI backend using LangGraph and SQLAlchemy.
+
+language: en-US
+tone_instructions: "Be concise and focus on critical issues. Prioritize security, performance, and adherence to the project's architectural rules. Follow the guidelines documented in AGENTS.md and docs/PRD.md."
+
+reviews:
+    profile: assertive
+    high_level_summary: true
+    high_level_summary_placeholder: "@coderabbitai summary"
+    auto_review:
+        enabled: true
+        drafts: false
+        ignore_title_keywords:
+            - "wip"
+            - "draft"
+            - "fixup"
+        labels:
+            - "bug"
+            - "feature"
+            - "enhancement"
+            - "refactor"
+            - "docs"
+            - "test"
+    request_changes_workflow: false
+    commit_status: true
+    fail_commit_status: false
+    collapse_walkthrough: false
+    changed_files_summary: true
+    sequence_diagrams: true
+    estimate_code_review_effort: true
+    assess_linked_issues: true
+    related_issues: true
+    related_prs: true
+    suggested_labels: true
+    suggested_reviewers: true
+    auto_assign_reviewers: false
+    path_filters:
+        - "!node_modules/**"
+        - "!.next/**"
+        - "!dist/**"
+        - "!build/**"
+        - "!__pycache__/**"
+        - "!*.pyc"
+        - "!.venv/**"
+        - "!.env/**"
+        - "!uv.lock"
+    path_instructions:
+        - path: "**/*.py"
+          instructions: "Review Python code following the style defined in AGENTS.md. Check for: strict type hints, proper async/await usage, SQLAlchemy 2.0 async patterns, and specific security practices like tenant-scoped RLS checks. Business logic should be in services, not API routes."
+        - path: "app/api/**/*.py"
+          instructions: "Review FastAPI routes for: correct HTTP status codes, Pydantic request/response models, dependency injection (especially the RLS session), and clear API documentation. Routes should be thin controllers."
+        - path: "app/models/**/*.py"
+          instructions: "Review SQLAlchemy models. Ensure all tenant-specific tables include a `tenant_id` column and are designed to work with RLS policies."
+        - path: "app/services/llm/**/*.py"
+          instructions: "Review LangGraph agent code for: clear AgentState definition, correct node logic, conditional edges, and use of a Checkpointer for persistence. Ensure semantic cache logic is namespaced by tenant_id."
+        - path: "app/alembic/versions/*.py"
+          instructions: "Review Alembic migration files. Ensure that `op.create_table` includes the `tenant_id` column for all relevant tables. Check for the creation of RLS policies where necessary."
+        - path: "**/*.md"
+          instructions: "Review markdown files for clarity, formatting, and accuracy, especially in `AGENTS.md` and `docs/PRD.md`."
+
+    finishing_touches:
+        docstrings:
+            enabled: true
+        unit_tests:
+            enabled: true
+
+    pre_merge_checks:
+        docstrings:
+            mode: warning
+            threshold: 80
+        title:
+            mode: warning
+            requirements: "Title should follow conventional commits format: feat/, fix/, refactor/, docs/, test/, chore/."
+        description:
+            mode: warning
+        issue_assessment:
+            mode: warning
+        custom_checks:
+            - mode: error
+              name: "Hardcoded Secrets Check"
+              instructions: "Verify that no hardcoded API keys, passwords, or other secrets exist in the code. All configuration must be loaded via Pydantic settings from environment variables."
+            - mode: error
+              name: "Tenant Isolation (RLS) Check"
+              instructions: "Scan for any direct database queries that manually include a `WHERE tenant_id = ...` clause. The application relies on a session-level RLS context; manual tenant filtering is a sign of a potential security flaw."
+            - mode: warning
+              name: "Alembic Migration Check"
+              instructions: "If an Alembic migration file is modified, ensure the `down_revision` is correct and the changes are non-breaking where possible. All new tables for tenants must have a `tenant_id` column."
+
+chat:
+    auto_reply: true
+    art: true
+
+knowledge_base:
+    opt_out: false
+    web_search:
+        enabled: true
+    code_guidelines:
+        enabled: true
+        filePatterns:
+            - "AGENTS.md"
+            - "docs/PRD.md"
+            - "GEMINI.md"
+    learnings:
+        scope: local
+    issues:
+        scope: local
+    pull_requests:
+        scope: local
+
+code_generation:
+    docstrings:
+        language: en-US
+        path_instructions:
+            - path: "**/*.py"
+              instructions: "Generate Google-style docstrings with Args, Returns, and Raises sections for all public functions, classes, and methods."
+    unit_tests:
+        path_instructions:
+            - path: "**/*.py"
+              instructions: "Generate pytest-compatible unit tests. Use `pytest-asyncio` for async functions. Ensure external services (Database, Redis, LLM APIs) are properly mocked using `unittest.mock`."
+
+early_access: false
