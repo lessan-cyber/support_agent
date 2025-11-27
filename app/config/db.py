@@ -1,14 +1,24 @@
 import asyncio
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Generator
 
 from fastapi import Depends, HTTPException, Request
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.settings import settings as s
 
 engine = create_async_engine(
+    str(s.DATABASE_URL),
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    pool_size=20,
+    max_overflow=20,
+    echo=s.DEBUG,
+)
+
+# Synchronous Engine for Celery tasks
+sync_engine = create_engine(
     str(s.DATABASE_URL),
     pool_pre_ping=True,
     pool_recycle=3600,
@@ -22,6 +32,9 @@ SessionLocal = sessionmaker(
     autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
 )
 
+SessionLocalSync = sessionmaker(
+    autocommit=False, autoflush=False, bind=sync_engine
+)
 
 async def get_tenant_id(request: Request) -> str:
     """
@@ -55,6 +68,25 @@ async def get_db(
         except Exception:
             await session.rollback()
             raise
+
+
+def get_db_sync(tenant_id: str) -> Generator[Session, None, None]:
+    """
+    Synchronous dependency to get a DB session with RLS tenant context set.
+    For use in Celery tasks or other synchronous contexts.
+    """
+    db = SessionLocalSync()
+    try:
+        # Enforce RLS by setting the session-local 'app.current_tenant' variable.
+        db.execute(
+            text("SELECT set_config('app.current_tenant', :tenant_id, true)"),
+            {"tenant_id": tenant_id},
+        )
+        yield db
+    finally:
+        db.close()
+
+
 
 
 
