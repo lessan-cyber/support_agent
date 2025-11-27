@@ -1,8 +1,10 @@
 import asyncio
+import uuid
 from typing import AsyncGenerator, Generator
 
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -32,11 +34,10 @@ SessionLocal = sessionmaker(
     autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
 )
 
-SessionLocalSync = sessionmaker(
-    autocommit=False, autoflush=False, bind=sync_engine
-)
+SessionLocalSync = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)
 
-async def get_tenant_id(request: Request) -> str:
+
+def get_tenant_id(request: Request) -> str:
     """
     Dependency to extract tenant_id from request.state.
 
@@ -46,7 +47,15 @@ async def get_tenant_id(request: Request) -> str:
     tenant_id = getattr(request.state, "tenant_id", None)
     if not tenant_id:
         # This should not happen if the middleware is configured correctly
-        raise HTTPException(status_code=500, detail="Tenant ID not found in request state.")
+        raise HTTPException(
+            status_code=500, detail="Tenant ID not found in request state."
+        )
+
+    try:
+        uuid.UUID(tenant_id)  # Validate the tenant_id is a valid UUID
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid tenant ID")
+
     return tenant_id
 
 
@@ -65,7 +74,7 @@ async def get_db(
                 {"tenant_id": tenant_id},
             )
             yield session
-        except Exception:
+        except SQLAlchemyError:
             await session.rollback()
             raise
 
@@ -83,11 +92,11 @@ def get_db_sync(tenant_id: str) -> Generator[Session, None, None]:
             {"tenant_id": tenant_id},
         )
         yield db
+    except SQLAlchemyError:
+        db.rollback()
+        raise
     finally:
         db.close()
-
-
-
 
 
 async def check_db_connection():
