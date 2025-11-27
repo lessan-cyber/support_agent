@@ -1,9 +1,10 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config.db import check_db_connection
-from app.settings import settings as s
+from app.middleware.rls import rls_tenant_middleware
 
 
 @asynccontextmanager
@@ -18,7 +19,10 @@ app = FastAPI(
     description="A simple API for managing support tickets",
 )
 
+# Add the RLS middleware
+app.add_middleware(BaseHTTPMiddleware, dispatch=rls_tenant_middleware)
+
 
 @app.get("/")
-def read_root():
+def read_root() -> dict[str, str]:
     return {"message": "Hello from Support Agent API!"}

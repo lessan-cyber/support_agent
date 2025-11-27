@@ -1,10 +1,10 @@
 import asyncio
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Generator
 
-from sqlalchemy import text
+from fastapi import Depends, HTTPException, Request
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.settings import settings as s
 
@@ -14,29 +14,80 @@ engine = create_async_engine(
     pool_recycle=3600,
     pool_size=20,
     max_overflow=20,
-    echo=True,
+    echo=s.DEBUG,
 )
 
-Base = declarative_base()
+# Synchronous Engine for Celery tasks
+sync_engine = create_engine(
+    str(s.DATABASE_URL),
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    pool_size=20,
+    max_overflow=20,
+    echo=s.DEBUG,
+)
+
 
 SessionLocal = sessionmaker(
     autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
 )
 
-# async def init_db():
-#    """
-#    creation des tables
-#    """
-#    async with engine.begin() as conn:
-#        await conn.run_sync(Base.metadata.create_all)
+SessionLocalSync = sessionmaker(
+    autocommit=False, autoflush=False, bind=sync_engine
+)
+
+async def get_tenant_id(request: Request) -> str:
+    """
+    Dependency to extract tenant_id from request.state.
+
+    This assumes that the RLS middleware has already run and populated
+    `request.state.tenant_id`.
+    """
+    tenant_id = getattr(request.state, "tenant_id", None)
+    if not tenant_id:
+        # This should not happen if the middleware is configured correctly
+        raise HTTPException(status_code=500, detail="Tenant ID not found in request state.")
+    return tenant_id
 
 
-async def get_db():
-    db = SessionLocal()
+async def get_db(
+    tenant_id: str = Depends(get_tenant_id),
+) -> AsyncGenerator[AsyncSession, None]:
+    """
+    FastAPI dependency to get a DB session with RLS tenant context set.
+    """
+    async with SessionLocal() as session:
+        try:
+            # Enforce RLS by setting the session-local 'app.current_tenant' variable.
+            # Using set_config with 'is_local=true' means it only lasts for the current session.
+            await session.execute(
+                text("SELECT set_config('app.current_tenant', :tenant_id, true)"),
+                {"tenant_id": tenant_id},
+            )
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
+
+
+def get_db_sync(tenant_id: str) -> Generator[Session, None, None]:
+    """
+    Synchronous dependency to get a DB session with RLS tenant context set.
+    For use in Celery tasks or other synchronous contexts.
+    """
+    db = SessionLocalSync()
     try:
+        # Enforce RLS by setting the session-local 'app.current_tenant' variable.
+        db.execute(
+            text("SELECT set_config('app.current_tenant', :tenant_id, true)"),
+            {"tenant_id": tenant_id},
+        )
         yield db
     finally:
-        await db.close()
+        db.close()
+
+
+
 
 
 async def check_db_connection():

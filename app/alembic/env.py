@@ -74,14 +74,17 @@ async def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
 
-    async with connectable.connect() as connection:
-        await connection.run_sync(
-            lambda sync_conn: context.configure(
-                connection=sync_conn, target_metadata=target_metadata
+    try:
+        async with connectable.connect() as connection:
+            await connection.run_sync(
+                lambda sync_conn: context.configure(
+                    connection=sync_conn, target_metadata=target_metadata
+                )
             )
-        )
 
-        await connection.run_sync(lambda sync_conn: context.run_migrations())
+            await connection.run_sync(lambda sync_conn: context.run_migrations())
+    finally:
+        await connectable.dispose()
 
 
 if context.is_offline_mode():
