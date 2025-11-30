@@ -1,4 +1,3 @@
-import asyncio
 import uuid
 from typing import AsyncGenerator, Generator
 
@@ -9,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.settings import settings as s
+from app.utils import logger
 
 engine = create_async_engine(
     str(s.DATABASE_URL),
@@ -30,6 +30,7 @@ sync_engine = create_engine(
 )
 
 
+# pyrefly: ignore [no-matching-overload]
 SessionLocal = sessionmaker(
     autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
 )
@@ -103,7 +104,7 @@ async def check_db_connection():
     try:
         async with SessionLocal() as session:
             await session.execute(text("SELECT 1"))
-            print("Database connection successful")
+            logger.info("Database connection successful")
     except Exception as e:
-        print(f"Database connection error: {e}")
+        logger.error(f"Database connection error: {e}")
         raise
