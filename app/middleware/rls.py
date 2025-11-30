@@ -23,6 +23,7 @@ async def rls_tenant_middleware(request: Request, call_next: Callable[[Request],
     """
     # Bypass tenant check for public paths
     if request.url.path in PUBLIC_PATHS:
+        # pyrefly: ignore [not-async]
         response = await call_next(request)
         return response
 
@@ -36,5 +37,6 @@ async def rls_tenant_middleware(request: Request, call_next: Callable[[Request],
         raise HTTPException(status_code=422, detail="Invalid X-Tenant-ID format (must be a valid UUID)")
 
     request.state.tenant_id = tenant_id
+    # pyrefly: ignore [not-async]
     response = await call_next(request)
     return response

@@ -1,15 +1,18 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.api.v1 import documents as documents_router
 from app.config.db import check_db_connection
-from app.middleware.rls import rls_tenant_middleware
+from app.config.redis import check_redis_connection
+from app.config.supabase import check_supabase_connection
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await check_db_connection()
+    await check_redis_connection()
+    await check_supabase_connection()
     yield
 
 
@@ -19,8 +22,10 @@ app = FastAPI(
     description="A simple API for managing support tickets",
 )
 
-# Add the RLS middleware
-app.add_middleware(BaseHTTPMiddleware, dispatch=rls_tenant_middleware)
+# Include routers
+app.include_router(
+    documents_router.router, prefix="/api/v1/documents", tags=["Documents"]
+)
 
 
 @app.get("/")
