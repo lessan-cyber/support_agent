@@ -2,6 +2,7 @@
 
 from .base import Base, BaseModel
 from .document import Document
+from .file import File, FileStatus
 from .message import Message, SenderType
 from .tenant import Tenant
 from .ticket import Ticket, TicketStatus
@@ -18,4 +19,6 @@ __all__ = [
     "TicketStatus",
     "Message",
     "SenderType",
+    "File",
+    "FileStatus",
 ]

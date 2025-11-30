@@ -3,7 +3,7 @@
 import uuid
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import ForeignKey, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -16,8 +16,11 @@ class Document(BaseModel):
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
+    file_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("files.id", ondelete="CASCADE"), nullable=False
+    )
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(384), nullable=False)
     additional_data: Mapped[dict] = mapped_column(
         JSONB, nullable=True, comment="Additional metadata for the document."
     )
