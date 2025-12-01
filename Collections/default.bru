@@ -5,13 +5,17 @@ meta {
 }
 
 get {
-  url: http://localhost:8000/
+  url: {{backend_base_url}}
   body: none
-  auth: inherit
+  auth: bearer
 }
 
 headers {
   accept: application/json
+}
+
+auth:bearer {
+  token: {{token}}
 }
 
 settings {

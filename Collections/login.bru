@@ -5,23 +5,19 @@ meta {
 }
 
 post {
-  url: https://kihcjaymizubxwsshkxv.supabase.co/auth/v1/token?grant_type=password
+  url: {{supabase_login_url}}
   body: json
   auth: inherit
 }
 
-params:query {
-  grant_type: password
-}
-
 headers {
-  apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpaGNqYXltaXp1Ynh3c3Noa3h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzMjUxODgsImV4cCI6MjA3OTkwMTE4OH0.q-HHGMs_hGKa8NXNyXRkN8pzYvnN-ZBAjgCB5LxQ7lI
+  apikey: {{anon_key}}
 }
 
 body:json {
   
-  {"email": "azizmetchonou434@gmail.com",
-   "password": "azerty"}
+  {"email": "{{email}}",
+   "password": "{{password}}" }
   
 }
 
