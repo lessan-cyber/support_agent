@@ -4,7 +4,7 @@ from typing import AsyncGenerator, Generator
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.settings import settings as s
@@ -21,7 +21,7 @@ engine = create_async_engine(
 
 # Synchronous Engine for Celery tasks
 sync_engine = create_engine(
-    str(s.DATABASE_URL),
+    str(s.DATABASE_URL).replace("postgresql+asyncpg", "postgresql+psycopg2"),
     pool_pre_ping=True,
     pool_recycle=3600,
     pool_size=20,
@@ -30,12 +30,13 @@ sync_engine = create_engine(
 )
 
 
-# pyrefly: ignore [no-matching-overload]
-SessionLocal = sessionmaker(
-    autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
+SessionLocal = async_sessionmaker(
+    bind=engine, class_=AsyncSession, autocommit=False, autoflush=False
 )
 
-SessionLocalSync = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)
+SessionLocalSync: sessionmaker[Session] = sessionmaker(
+    autocommit=False, autoflush=False, bind=sync_engine
+)
 
 
 def get_tenant_id(request: Request) -> str:
