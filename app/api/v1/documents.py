@@ -3,9 +3,10 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_rls_session
+from app.api.deps import get_current_user, get_rls_session, reusable_oauth2
 from app.models.file import File, FileStatus
 from app.models.user import User
 from app.schemas.file import FileUploadResponse
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 )
 async def upload_document(
     file: UploadFile,
+    token: HTTPBearer = Depends(reusable_oauth2),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_rls_session),
 ) -> FileUploadResponse:
@@ -46,26 +48,37 @@ async def upload_document(
     await db.refresh(db_file)
 
     try:
+        # Reset file pointer to the beginning to ensure the whole file is read
+        await file.seek(0)
+        file_content = await file.read()
+
         # The file.file is a SpooledTemporaryFile, which needs to be read from the beginning
-        await upload_to_storage(file_stream=file.file, storage_path=storage_path)
+        await upload_to_storage(
+            file_stream=file_content,
+            storage_path=storage_path,
+        )
         db_file.status = FileStatus.PROCESSING
         await db.commit()
         await db.refresh(db_file)
 
-        # Trigger the Celery task
-        # pyrefly: ignore [not-callable]
-        ingest_pdf.delay(
+        task = ingest_pdf.delay(  # type: ignore
             file_id=str(db_file.id),
             tenant_id=str(db_file.tenant_id),
             storage_path=db_file.storage_path,
         )
-
     except Exception as e:
         logger.error(
             f"Failed to upload file to storage for file_id: {db_file.id}. Error: {e}"
         )
         db_file.status = FileStatus.FAILED
         await db.commit()
-        raise HTTPException(status_code=500, detail="Failed to upload file to storage.")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to upload file to storage.{e}"
+        )
 
-    return FileUploadResponse.model_validate(db_file)
+    return FileUploadResponse(
+        file_id=db_file.id,
+        filename=db_file.filename,
+        status=db_file.status,
+        task_id=task.id,
+    )
