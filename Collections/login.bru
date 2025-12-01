@@ -1,0 +1,27 @@
+meta {
+  name: login
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{supabase_login_url}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  apikey: {{anon_key}}
+}
+
+body:json {
+  
+  {"email": "{{email}}",
+   "password": "{{password}}" }
+  
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}

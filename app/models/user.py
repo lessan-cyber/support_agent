@@ -4,7 +4,7 @@ import enum
 import uuid
 
 from sqlalchemy import Enum as EnumType
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -28,6 +28,12 @@ class User(BaseModel):
         primary_key=True,
         comment="Corresponds to the id of the user in Supabase auth.users.",
     )
+    email: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        unique=True,
+        comment="User's email address, synced from auth.users.",
+    )
     role: Mapped[UserRole] = mapped_column(
         EnumType(UserRole, name="user_role"),
         nullable=False,
@@ -42,4 +48,4 @@ class User(BaseModel):
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="users")
 
     def __repr__(self) -> str:
-        return f"<User(id={self.id}, role='{self.role.value}')>"
+        return f"<User(id={self.id}, email='{self.email}', role='{self.role.value}')>"

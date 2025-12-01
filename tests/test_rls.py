@@ -1,5 +1,4 @@
 
-import asyncio
 import uuid
 
 import pytest
@@ -85,7 +84,6 @@ async def test_rls_isolation_for_documents(db_session: AsyncSession):
         document_a_id = document_for_a.scalar_one()
 
     # 4. Commit the transaction to make data visible to subsequent connections
-    await db_session.commit()
 
     # 5. Set context to Tenant B and try to access Tenant A's document
     async with db_session.begin():
@@ -131,4 +129,3 @@ async def test_rls_isolation_for_documents(db_session: AsyncSession):
             {"tenant_id": str(tenant_b_id)},
         )
         await db_session.execute(text("DELETE FROM tenants WHERE id = :id"), {"id": tenant_b_id})
-    await db_session.commit()

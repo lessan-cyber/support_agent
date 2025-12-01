@@ -8,4 +8,5 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 def pytest_configure(config):
-    config.pluginmanager.unregister(name="anyio")
+    if config.pluginmanager.has_plugin("anyio"):
+        config.pluginmanager.unregister(name="anyio")

@@ -1,12 +1,14 @@
-import asyncio
+import uuid
 from typing import AsyncGenerator, Generator
 
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy import create_engine, text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.settings import settings as s
+from app.utils import logger
 
 engine = create_async_engine(
     str(s.DATABASE_URL),
@@ -19,7 +21,7 @@ engine = create_async_engine(
 
 # Synchronous Engine for Celery tasks
 sync_engine = create_engine(
-    str(s.DATABASE_URL),
+    str(s.DATABASE_URL).replace("postgresql+asyncpg", "postgresql+psycopg2"),
     pool_pre_ping=True,
     pool_recycle=3600,
     pool_size=20,
@@ -28,15 +30,16 @@ sync_engine = create_engine(
 )
 
 
-SessionLocal = sessionmaker(
-    autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
+SessionLocal = async_sessionmaker(
+    bind=engine, class_=AsyncSession, autocommit=False, autoflush=False
 )
 
-SessionLocalSync = sessionmaker(
+SessionLocalSync: sessionmaker[Session] = sessionmaker(
     autocommit=False, autoflush=False, bind=sync_engine
 )
 
-async def get_tenant_id(request: Request) -> str:
+
+def get_tenant_id(request: Request) -> str:
     """
     Dependency to extract tenant_id from request.state.
 
@@ -46,7 +49,15 @@ async def get_tenant_id(request: Request) -> str:
     tenant_id = getattr(request.state, "tenant_id", None)
     if not tenant_id:
         # This should not happen if the middleware is configured correctly
-        raise HTTPException(status_code=500, detail="Tenant ID not found in request state.")
+        raise HTTPException(
+            status_code=500, detail="Tenant ID not found in request state."
+        )
+
+    try:
+        uuid.UUID(tenant_id)  # Validate the tenant_id is a valid UUID
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid tenant ID")
+
     return tenant_id
 
 
@@ -65,7 +76,7 @@ async def get_db(
                 {"tenant_id": tenant_id},
             )
             yield session
-        except Exception:
+        except SQLAlchemyError:
             await session.rollback()
             raise
 
@@ -83,18 +94,18 @@ def get_db_sync(tenant_id: str) -> Generator[Session, None, None]:
             {"tenant_id": tenant_id},
         )
         yield db
+    except SQLAlchemyError:
+        db.rollback()
+        raise
     finally:
         db.close()
-
-
-
 
 
 async def check_db_connection():
     try:
         async with SessionLocal() as session:
             await session.execute(text("SELECT 1"))
-            print("Database connection successful")
+            logger.info("Database connection successful")
     except Exception as e:
-        print(f"Database connection error: {e}")
+        logger.error(f"Database connection error: {e}")
         raise
