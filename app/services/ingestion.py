@@ -10,17 +10,72 @@ import uuid
 import fitz  # PyMuPDF
 from fastembed import TextEmbedding
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from supabase import StorageException
 
 from app.config.db import get_db_sync
 from app.config.supabase import supabase_admin_sync
 from app.models.document import Document
 from app.models.file import File, FileStatus
+from app.services.storage import upload_to_storage_sync
 from app.worker import celery_app
 
 logger = logging.getLogger(__name__)
 
 
-@celery_app.task(name="ingest_pdf")
+def _handle_ingestion_failure(db, file_id: str, error: Exception):
+    logger.exception(f"Ingestion failed for file_id: {file_id}. Error: {error}")
+    db.rollback()
+    db.query(File).filter(File.id == file_id).update({"status": FileStatus.FAILED})
+    db.commit()
+
+
+@celery_app.task(
+    name="upload_file_and_trigger_ingestion",
+    autoretry_for=(Exception,),
+    retry_kwargs={"max_retries": 3},
+    retry_backoff=True,
+)
+def upload_file_and_trigger_ingestion(
+    local_file_path: str, file_id: str, tenant_id: str, filename: str
+):
+    """
+    Celery task to upload a file to Supabase Storage and then trigger the ingestion task.
+    """
+    logger.info(f"Starting upload for file_id: {file_id}")
+    db_session_gen = get_db_sync(tenant_id=tenant_id)
+    db = next(db_session_gen)
+
+    try:
+        storage_path = f"{tenant_id}/{filename}"
+        with open(local_file_path, "rb") as f:
+            upload_to_storage_sync(f, storage_path)
+
+        logger.info(f"Successfully uploaded file_id: {file_id} to {storage_path}")
+
+        # Update file status to PROCESSING
+        db.query(File).filter(File.id == file_id).update(
+            {"status": FileStatus.PROCESSING}
+        )
+        db.commit()
+
+        # Trigger the next stage of the pipeline
+        ingest_pdf.delay(file_id, tenant_id, storage_path)
+
+    except Exception as e:
+        _handle_ingestion_failure(db, file_id, e)
+        raise
+    finally:
+        if os.path.exists(local_file_path):
+            os.remove(local_file_path)
+        db.close()
+
+
+@celery_app.task(
+    name="ingest_pdf",
+    autoretry_for=(StorageException,),
+    retry_kwargs={"max_retries": 3},
+    retry_backoff=True,
+)
 def ingest_pdf(file_id: str, tenant_id: str, storage_path: str):
     """
     Celery task to process a PDF file from storage, extract text,
@@ -58,10 +113,19 @@ def ingest_pdf(file_id: str, tenant_id: str, storage_path: str):
 
         documents_to_add = []
         for i, chunk in enumerate(chunks):
+            try:
+                tenant_uuid = uuid.UUID(tenant_id)
+                file_uuid = uuid.UUID(file_id)
+            except ValueError as e:
+                logger.error(
+                    f"Invalid UUID format for tenant_id: {tenant_id} or file_id: {file_id}. Error: {e}"
+                )
+                raise  # Re-raise to be caught by the task's main exception handler
+
             new_doc = Document(
                 id=uuid.uuid4(),
-                tenant_id=tenant_id,
-                file_id=file_id,
+                tenant_id=tenant_uuid,
+                file_id=file_uuid,
                 content=chunk,
                 embedding=embeddings[i].tolist(),
             )
@@ -74,11 +138,27 @@ def ingest_pdf(file_id: str, tenant_id: str, storage_path: str):
         db.commit()
         logger.info(f"Successfully indexed file_id: {file_id}")
 
-    except Exception as e:
-        logger.error(f"Failed to ingest file_id: {file_id}. Error: {e}", exc_info=True)
-        db.rollback()
-        db.query(File).filter(File.id == file_id).update({"status": FileStatus.FAILED})
-        db.commit()
+    except StorageException as e:
+        _handle_ingestion_failure(db, file_id, e)
+        raise  # Re-raise to let Celery handle retry/failure
+
+    except fitz.FileDataError as e:
+        _handle_ingestion_failure(db, file_id, e)
+        raise  # Re-raise to let Celery handle retry/failure
+
+    except (
+        ValueError
+    ) as e:  # Catch ValueErrors from UUID conversion, text splitting, etc.
+        _handle_ingestion_failure(db, file_id, e)
+        raise  # Re-raise to let Celery handle retry/failure
+
+    except RuntimeError as e:  # Catch RuntimeErrors from fastembed or other issues
+        _handle_ingestion_failure(db, file_id, e)
+        raise  # Re-raise to let Celery handle retry/failure
+
+    except Exception as e:  # Generic fallback
+        _handle_ingestion_failure(db, file_id, e)
+        raise  # Re-raise to let Celery handle retry/failure
     finally:
         if "tmp_file_path" in locals() and os.path.exists(tmp_file_path):
             os.remove(tmp_file_path)
