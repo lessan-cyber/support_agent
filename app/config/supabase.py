@@ -3,18 +3,22 @@
 from supabase import AsyncClient, Client, acreate_client, create_client
 
 from app.settings import settings
-from app.utils import logger
+from app.utils.logging_config import logger
 
 
-async def get_supabase_client() -> AsyncClient:
-    """Initializes and returns the Supabase async client."""
-    return await acreate_client(str(settings.SUPABASE_URL), str(settings.SUPABASE_KEY))
+async def supabase_admin() -> AsyncClient:
+    supabase_admin: AsyncClient = await acreate_client(
+        settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY
+    )
+    return supabase_admin
 
 
-def get_supabase_client_sync() -> Client:
-    """Initializes and returns the Supabase sync client for Celery tasks."""
-    # pyrefly: ignore [unknown-name]
-    return create_client(str(settings.SUPABASE_URL), str(settings.SUPABASE_KEY))
+def supabase_admin_sync() -> Client:
+    supabase_admin: Client = create_client(
+        settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY
+    )
+
+    return supabase_admin
 
 
 async def check_supabase_connection():
@@ -23,8 +27,7 @@ async def check_supabase_connection():
     Raises an exception if the connection fails.
     """
     try:
-        supabase_client = await get_supabase_client()
-        # Attempt to list buckets to verify connection
+        supabase_client = await supabase_admin()
         await supabase_client.storage.list_buckets()
         logger.info("Supabase connection successful")
     except Exception as e:
