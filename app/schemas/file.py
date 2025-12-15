@@ -13,11 +13,9 @@ class FileUploadResponse(BaseModel):
     file_id: uuid.UUID = Field(
         ...,
         description="The unique identifier for the uploaded file.",
-        validation_alias="id",
+        alias="id",
     )
     filename: str = Field(..., description="The name of the uploaded file.")
     status: FileStatus = Field(..., description="The current status of the file.")
     task_id: str = Field(..., description="The ID of the background ingestion task.")
-
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
