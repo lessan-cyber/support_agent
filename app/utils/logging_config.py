@@ -2,11 +2,13 @@ import logging
 import sys
 
 
-def setup_logging():
+def setup_logging() -> logging.Logger:
     """
     Sets up logging for the application with different levels for console output.
     """
     logger = logging.getLogger("support_agent")
+    if logger.handlers:
+        return logger
     logger.setLevel(logging.INFO)
 
     console_handler = logging.StreamHandler(sys.stdout)
@@ -19,5 +21,4 @@ def setup_logging():
     return logger
 
 
-# Initialize logger when this module is imported
 logger = setup_logging()

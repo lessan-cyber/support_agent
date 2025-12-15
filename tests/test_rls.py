@@ -1,5 +1,4 @@
-
-import uuid
+from uuid_extensions import uuid7 as uuid
 
 import pytest
 import pytest_asyncio
@@ -8,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.settings import settings
+
 
 @pytest_asyncio.fixture(scope="function")
 async def engine():
@@ -42,8 +42,8 @@ async def test_rls_isolation_for_documents(db_session: AsyncSession):
             pytest.skip("This test must be run as a non-superuser to validate RLS.")
 
         # 2. Create two separate tenants, setting the context for each one
-        tenant_a_id = uuid.uuid4()
-        tenant_b_id = uuid.uuid4()
+        tenant_a_id = uuid()
+        tenant_b_id = uuid()
 
         # Set context for Tenant A and insert
         await db_session.execute(
@@ -97,9 +97,9 @@ async def test_rls_isolation_for_documents(db_session: AsyncSession):
             {"doc_id": document_a_id},
         )
         # The query should return no rows, proving RLS is working
-        assert (
-            result.first() is None
-        ), "Tenant B was able to access Tenant A's document."
+        assert result.first() is None, (
+            "Tenant B was able to access Tenant A's document."
+        )
 
         # 6. (Optional but good) Verify Tenant A can still access its own document
         await db_session.execute(
@@ -110,9 +110,9 @@ async def test_rls_isolation_for_documents(db_session: AsyncSession):
             text("SELECT id FROM documents WHERE id = :doc_id"),
             {"doc_id": document_a_id},
         )
-        assert (
-            result.scalar_one() == document_a_id
-        ), "Tenant A could not access its own document."
+        assert result.scalar_one() == document_a_id, (
+            "Tenant A could not access its own document."
+        )
 
     # Clean up created tenants one by one, respecting RLS
     async with db_session.begin():
@@ -121,11 +121,15 @@ async def test_rls_isolation_for_documents(db_session: AsyncSession):
             text("SELECT set_config('app.current_tenant', :tenant_id, true)"),
             {"tenant_id": str(tenant_a_id)},
         )
-        await db_session.execute(text("DELETE FROM tenants WHERE id = :id"), {"id": tenant_a_id})
+        await db_session.execute(
+            text("DELETE FROM tenants WHERE id = :id"), {"id": tenant_a_id}
+        )
 
         # Set context for Tenant B and delete
         await db_session.execute(
             text("SELECT set_config('app.current_tenant', :tenant_id, true)"),
             {"tenant_id": str(tenant_b_id)},
         )
-        await db_session.execute(text("DELETE FROM tenants WHERE id = :id"), {"id": tenant_b_id})
+        await db_session.execute(
+            text("DELETE FROM tenants WHERE id = :id"), {"id": tenant_b_id}
+        )

@@ -7,7 +7,9 @@ import uuid
 PUBLIC_PATHS = ["/", "/docs", "/openapi.json"]
 
 
-async def rls_tenant_middleware(request: Request, call_next: Callable[[Request], Response]) -> Response:
+async def rls_tenant_middleware(
+    request: Request, call_next: Callable[[Request], Response]
+) -> Response:
     """
     FastAPI middleware to enforce tenant isolation via X-Tenant-ID header.
 
@@ -34,7 +36,9 @@ async def rls_tenant_middleware(request: Request, call_next: Callable[[Request],
     try:
         uuid.UUID(tenant_id)  # Validate the tenant_id is a valid UUID
     except ValueError:
-        raise HTTPException(status_code=422, detail="Invalid X-Tenant-ID format (must be a valid UUID)")
+        raise HTTPException(
+            status_code=422, detail="Invalid X-Tenant-ID format (must be a valid UUID)"
+        )
 
     request.state.tenant_id = tenant_id
     # pyrefly: ignore [not-async]

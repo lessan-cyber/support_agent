@@ -32,17 +32,17 @@ Used to track the processing state of uploaded documents so the UI can react acc
 
 ## 4. Workflow Specification
 
-### Step 1: API Upload (Synchronous)
+### Step 1: API Upload (ASynchronous)
 * **Endpoint:** `POST /documents/upload`
 * **Action:**
-    1.  Validate file type (PDF only) and size (< 10MB).
+    1.  Validate file type (PDF only) and size (< 20MB).
     2.  Create entry in `files` table with status `uploading`.
     3.  Upload binary stream to Supabase Storage bucket.
     4.  Update `files` status to `processing`.
     5.  Trigger Celery Task: `ingest_pdf(file_id, tenant_id, storage_path)`.
     6.  **Return:** `202 Accepted` with `file_id`.
 
-### Step 2: The Worker (Asynchronous)
+### Step 2: The Worker (Synchronous)
 * **Task:** `ingest_pdf`
 * **Action:**
     1.  Download file from Supabase Storage to local temporary storage (`/tmp`).

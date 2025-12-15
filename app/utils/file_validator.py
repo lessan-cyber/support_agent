@@ -2,29 +2,30 @@
 
 from fastapi import HTTPException, UploadFile
 
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 ALLOWED_CONTENT_TYPE = "application/pdf"
 
 
 async def validate_pdf(file: UploadFile) -> None:
     """
-    Validates that an uploaded file is a PDF and is within the size limit.
+    Validates that an uploaded file is a PDF.
 
     Args:
         file: The file uploaded via a FastAPI endpoint.
 
     Raises:
-        HTTPException: If the file is not a PDF or exceeds the size limit.
+        HTTPException: If the file is not a PDF.
     """
-    file_content = await file.read()
-    # After reading, immediately reset the file pointer for subsequent operations.
+    if file.content_type != ALLOWED_CONTENT_TYPE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Only {ALLOWED_CONTENT_TYPE} is accepted.",
+        )
+    
+    magic_bytes = await file.read(5)
     await file.seek(0)
 
-    if not file_content.startswith(b"%PDF-"):
+    if magic_bytes != b"%PDF-":
         raise HTTPException(
             status_code=400,
             detail="Invalid file content. File does not appear to be a valid PDF.",
         )
-
-    if len(file_content) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="File size exceeds the 10MB limit.")
