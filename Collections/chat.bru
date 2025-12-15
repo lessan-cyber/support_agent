@@ -1,0 +1,26 @@
+meta {
+  name: chat
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{backend_base_url}}/api/v1/chat/stream
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{anonymous_key}}
+}
+
+body:json {
+  {
+    "content":"can i setup password protection for my documents in libreoffice , if so how ?"
+  }  
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

@@ -1,0 +1,24 @@
+meta {
+  name: init_chat
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{backend_base_url}}/api/v1/chat/init
+  body: json
+  auth: inherit
+}
+
+headers {
+  origin: localhost:3000
+}
+
+body:json {
+  {"tenant_id":"dbdeb02c-cf64-4a34-9de9-92ab59743f46"}
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
