@@ -8,7 +8,7 @@ Create Date: 2025-11-28 21:33:08.252894
 
 from typing import Sequence, Union
 
-from alembic import op
+from alembic import context, op
 
 # revision identifiers, used by Alembic.
 revision: str = "f9dbf22331dc"
@@ -25,8 +25,11 @@ def upgrade() -> None:
         FOR ALL
         USING (current_setting('role', true) = 'service_role')
     """)
+    context.execute_with_connection(
+        lambda conn: conn.execution_options(isolation_level="AUTOCOMMIT")
+    )
     op.execute("""
-        CREATE INDEX CONCURRENTLY idx_documents_embedding_hnsw
+        CREATE INDEX idx_documents_embedding_hnsw
         ON documents
         USING hnsw (embedding vector_cosine_ops)
         WITH (m = 16, ef_construction = 64)
@@ -36,3 +39,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     op.drop_index("idx_documents_embedding_hnsw", table_name="documents")
+    op.execute("DROP POLICY IF EXISTS admin_only ON alembic_version")
+    op.execute("ALTER TABLE alembic_version DISABLE ROW LEVEL SECURITY")
