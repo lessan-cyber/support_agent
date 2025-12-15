@@ -14,10 +14,10 @@ class Document(BaseModel):
     __tablename__ = "documents"
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
     )
     file_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("files.id", ondelete="CASCADE"), nullable=False
+        ForeignKey("files.id", ondelete="CASCADE"), nullable=False, index=True
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
     embedding: Mapped[list[float]] = mapped_column(Vector(384), nullable=False)

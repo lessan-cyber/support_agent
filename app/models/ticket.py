@@ -20,7 +20,7 @@ class Ticket(BaseModel):
     __tablename__ = "tickets"
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
     )
     status: Mapped[TicketStatus] = mapped_column(
         EnumType(TicketStatus, name="ticket_status"),

@@ -1,8 +1,8 @@
 """Tenant model."""
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
-from sqlalchemy import String
+from sqlalchemy import ARRAY, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
@@ -14,12 +14,15 @@ if TYPE_CHECKING:
 class Tenant(BaseModel):
     __tablename__ = "tenants"
 
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     plan: Mapped[str] = mapped_column(String(100), nullable=True, default="free")
+    allowed_domains: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=True, default=[]
+    )
 
     # Relationship to users within the same tenant
     # pyrefly: ignore [unknown-name]
-    users: Mapped[List["User"]] = relationship(
+    users: Mapped[list["User"]] = relationship(
         "User", back_populates="tenant", cascade="all, delete-orphan"
     )
 

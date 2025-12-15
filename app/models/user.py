@@ -48,4 +48,4 @@ class User(BaseModel):
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="users")
 
     def __repr__(self) -> str:
-        return f"<User(id={self.id}, email='{self.email}', role='{self.role.value}')>"
+        return f"<User(id={self.id}, role='{self.role.value}', tenant_id={self.tenant_id})>"
