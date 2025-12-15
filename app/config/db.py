@@ -24,17 +24,18 @@ engine = create_async_engine(
 sync_db_url = make_url(str(s.DATABASE_URL))
 sync_db_url = sync_db_url.set(drivername="postgresql+psycopg2")
 sync_engine = create_engine(
-    sync_db_url,
+    s.TRANSACTION_CONNECTION,
     pool_pre_ping=True,
     pool_recycle=3600,
-    pool_size=20,
-    max_overflow=20,
+    pool_size=5,
+    max_overflow=2,
     echo=s.DEBUG,
+    connect_args={"options": "-c prepared_statements=off"},
 )
 
 
 SessionLocal = async_sessionmaker(
-    bind=engine, class_=AsyncSession, autocommit=False, autoflush=False
+    bind=engine, class_=AsyncSession, autocommit=False, autoflush=False, expire_on_commit=False
 )
 
 SessionLocalSync: sessionmaker[Session] = sessionmaker(
@@ -91,7 +92,6 @@ def get_db_sync(tenant_id: str) -> Generator[Session, None, None]:
     """
     db = SessionLocalSync()
     try:
-        # Enforce RLS by setting the session-local 'app.current_tenant' variable.
         db.execute(
             text("SELECT set_config('app.current_tenant', :tenant_id, true)"),
             {"tenant_id": tenant_id},
