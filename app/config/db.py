@@ -3,6 +3,7 @@ from typing import AsyncGenerator, Generator
 
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -20,8 +21,10 @@ engine = create_async_engine(
 )
 
 # Synchronous Engine for Celery tasks
+sync_db_url = make_url(str(s.DATABASE_URL))
+sync_db_url = sync_db_url.set(drivername="postgresql+psycopg2")
 sync_engine = create_engine(
-    str(s.DATABASE_URL).replace("postgresql+asyncpg", "postgresql+psycopg2"),
+    sync_db_url,
     pool_pre_ping=True,
     pool_recycle=3600,
     pool_size=20,
@@ -55,8 +58,8 @@ def get_tenant_id(request: Request) -> str:
 
     try:
         uuid.UUID(tenant_id)  # Validate the tenant_id is a valid UUID
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid tenant ID")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid tenant ID") from e
 
     return tenant_id
 
