@@ -6,7 +6,7 @@
 
 -----
 
-## 1\. Executive Summary
+## 1. Executive Summary
 
 **Objective:** Build a secure, multi-tenant AI customer support platform. The system acts as a first-line responder using RAG (Retrieval Augmented Generation) but seamlessly escalates to human agents when confidence is low.
 **Key Differentiators:**
@@ -18,7 +18,7 @@
 
 -----
 
-## 2\. System Architecture
+## 2. System Architecture
 
 ### 2.1 High-Level Components
 
@@ -34,13 +34,13 @@
 
 1.  **Inference:** User Query $\rightarrow$ **Check Redis Cache (Tenant-Scoped)**.
       * *Hit:* Return cached answer immediately (0 cost).
-      * *Miss:* Retrieve Docs (RLS) $\rightarrow$ Generate Answer $\rightarrow$ Check Confidence.
-2.  **Escalation (Low Confidence):** Send "Bridge Message" $\rightarrow$ Create Ticket $\rightarrow$ **Pause**.
-3.  **Resolution:** Human fixes answer $\rightarrow$ Resume Graph $\rightarrow$ Send to User $\rightarrow$ **Update Redis Cache**.
+      * *Miss:* Retrieve Docs (RLS) $\rightarrow$ Generate Answer $ightarrow$ Check Confidence.
+2.  **Escalation (Low Confidence):** Send "Bridge Message" $ightarrow$ Create Ticket $ightarrow$ **Pause**.
+3.  **Resolution:** Human fixes answer $ightarrow$ Resume Graph $ightarrow$ Send to User $ightarrow$ **Update Redis Cache**.
 
 -----
 
-## 3\. Database Schema & Security (Supabase)
+## 3. Database Schema & Security (Supabase)
 
 **Core Principle:** Every query implies `WHERE tenant_id = X`. RLS enforces this physically.
 
@@ -62,7 +62,7 @@ USING (tenant_id = current_setting('app.current_tenant')::uuid);
 
 -----
 
-## 4\. Semantic Caching Strategy (Redis)
+## 4. Semantic Caching Strategy (Redis)
 
 To prevent data leaks between tenants in the cache, we must use **Namespaced Keys**.
 
@@ -80,7 +80,7 @@ The Redis key is NOT just the vector of the question. It is a composite:
 
 -----
 
-## 5\. The AI Engine (LangGraph Specification)
+## 5. The AI Engine (LangGraph Specification)
 
 ### 5.1 State Definition
 
@@ -96,18 +96,18 @@ class AgentState(TypedDict):
 ### 5.2 Graph Nodes & Logic
 
 1.  **`cache_check_node`**:
-      * Embeds query. Searches Redis within `tenant_id` namespace (Threshold \> 0.9).
+      * Embeds query. Searches Redis within `tenant_id` namespace (Threshold > 0.9).
       * If Hit $\rightarrow$ Go to End.
-      * If Miss $\rightarrow$ Go to `retrieve_node`.
+      * If Miss $ightarrow$ Go to `retrieve_node`.
 2.  **`retrieve_node`**: RLS Query on Supabase `documents`.
 3.  **`grade_node`**: LLM evaluates document relevance.
 4.  **`generate_node`**: LLM generates answer.
 5.  **`assess_confidence_node`**: LLM rates its own answer (0.0 to 1.0).
-      * **Score \> 0.7:** Go to `cache_update_node` (Auto-save) $\rightarrow$ End.
-      * **Score \< 0.7:** Go to `escalate_node`.
+      * **Score > 0.7:** Go to `cache_update_node` (Auto-save) $ightarrow$ End.
+      * **Score < 0.7:** Go to `escalate_node`.
 6.  **`escalate_node` (The Bridge)**:
       * Create `Ticket` in DB.
-      * **Output:** "I need to check this with an expert. Ticket \#{id} created. You will receive an email notification."
+      * **Output:** "I need to check this with an expert. Ticket #{id} created. You will receive an email notification."
       * **Action:** `interrupt` (Pause Graph).
 7.  **`human_resolution_node` (Post-Pause)**:
       * Input: Human modified answer.
@@ -117,7 +117,7 @@ class AgentState(TypedDict):
 
 -----
 
-## 6\. Functional Requirements (UX focus)
+## 6. Functional Requirements (UX focus)
 
 ### 6.1 Real-Time UX
 
@@ -133,13 +133,9 @@ class AgentState(TypedDict):
     2.  Update the Database ticket status to `resolved`.
     3.  Update the Semantic Cache.
 
-### 6.3 Notifications
+----- 
 
-  * **FR-06:** If the chat session is disconnected (user closed tab), the system must send the final human answer via **Email** using the `user_email` collected at the start of the chat.
-
------
-
-## 7\. API Specification (Key Endpoints)
+## 7. API Specification (Key Endpoints)
 
 ### Chat
 
@@ -153,9 +149,9 @@ class AgentState(TypedDict):
       * **Body:** `{"answer": "The corrected technical answer...", "notify_email": true}`
       * **Backend Action:** Resumes LangGraph with the new answer, triggers Email service, writes to Redis.
 
------
+----- 
 
-## 8\. Development Roadmap
+## 8. Development Roadmap
 
   * **Phase 1: The Secure Core (Days 1-3)**
       * FastAPI + Supabase setup.

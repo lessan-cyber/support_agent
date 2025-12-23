@@ -1,122 +1,53 @@
-# Sub-PRD: Public Chat Widget & Agent Engine
+# Sub-PRD: Context-Aware AI Support Agent (Public Chat Widget)
 
-**Component:** External API / Widget Backend
-**Version:** 1.3 (Corrected - Auth & Hybrid Memory)
+**Component:** External API / Widget Backend & Agent Engine
+**Version:** 2.0 (Unified - Context-Aware)
 **Status:** Approved for Development
 
-## 1\. Objective
+---
 
-Build a  multi-tenant Chat API. The system handles anonymous user sessions via JWT, streams AI responses via SSE, and synchronizes two layers of memory (SQL for UI, LangGraph for Execution).
+## 1. Objective
 
-## 2\. Security Architecture (The Handshake)
+Build a secure, multi-tenant, context-aware AI customer support platform. The system must handle multi-turn conversations by reformulating user questions, stream responses in real-time via SSE, and seamlessly escalate to human agents when AI confidence is low. It synchronizes two layers of memory: a PostgreSQL database for UI history and a LangGraph checkpointer for execution state.
 
-We rely on **Domain Whitelisting** to prevent abuse and **JWT Sessions** to secure the conversation.
+---
 
-### 2.1 The "Handshake" Flow
+## 2. Security Architecture (The Handshake)
 
-1.  **Step 1 (Init):** Widget sends `POST /chat/init` with `tenant_id` and browser sends `Origin`.
-2.  **Step 2 (Verify):** API checks if `Origin` is in `tenants.allowed_domains`.
-3.  **Step 3 (Issue):** API returns a **Session JWT** signed with the Supabase Secret.
-      * **Payload:**
-          * `sub`: `anon_{random_uuid}` (The anonymous user ID)
-          * `role`: `customer` (Distinct from 'admin')
-          * `tenant_id`: `{target_tenant_uuid}` (CRITICAL for RLS)
-          * `ticket_id`: `{ticket_uuid}` (Used for History & Thread ID)
+We rely on **Domain Whitelisting** to prevent abuse and **JWT Sessions** to secure each conversation.
 
-## 3\. Authentication & Dependencies (The Implementation)
+### 2.1. The "Handshake" Flow
 
-This is the critical "Senior" part. We do not use headers like `X-Tenant-ID`. We use a FastAPI Dependency.
+1.  **Step 1 (Init):** The client-side widget sends a `POST /api/v1/chat/init` request containing the `tenant_id` and the browser's `Origin` header.
+2.  **Step 2 (Verify):** The API verifies that the `Origin` domain is listed in the `tenants.allowed_domains` table for the given `tenant_id`.
+3.  **Step 3 (Issue):** If verified, the API creates a `ticket` record in the database and returns a **Session JWT** signed with the application's `SECRET_KEY`.
 
-### 3.1 New Dependency: `get_chat_session`
+### 2.2. Session JWT Payload
 
-  * **Location:** `app/api/deps.py`
-  * **Inputs:** Accepts Token via **HTTP Bearer Header** OR **Query Parameter** (e.g., `?token=xyz` for easier SSE debugging).
-  * **Logic:**
-    1.  Decodes JWT.
-    2.  Validates `role` == `customer`.
-    3.  Extracts `tenant_id`.
-    4.  **RLS Injection:** Opens a DB Session and executes `SET app.current_tenant = :tenant_id`.
-    5.  **Return:** A tuple `(AsyncSession, ticket_id)`.
+The JWT payload contains all necessary context for secure, stateful operations:
 
-### 3.2 Security Rules
+-   `sub`: `anon_{random_uuid}` (A unique identifier for the anonymous user).
+-   `role`: `customer` (A fixed role to distinguish from internal admin users).
+-   `tenant_id`: The UUID of the tenant, critical for enforcing RLS.
+-   `ticket_id`: The UUID of the newly created ticket, used as the `thread_id` for the LangGraph agent and for querying chat history.
 
-  * **Rule:** The `/chat/stream` and `/chat/history` endpoints **MUST** fail (401) if the JWT signature is invalid or if the `tenant_id` is missing from the payload.
+---
 
-## 4\. The Hybrid Memory Strategy
+## 3. Authentication & Dependencies
 
-We synchronize two storage systems.
+All chat-related endpoints are protected by a robust FastAPI dependency that manages the session and enforces security.
 
-### 4.1 UI Memory (PostgreSQL `messages` table)
+### 3.1. The `get_chat_session` Dependency
 
-  * **Purpose:** Rendering chat history (`GET /history`), Analytics, RLS.
-  * **Write Timing:**
-      * *User Msg:* Saved *before* graph execution.
-      * *AI Msg:* Saved *after* stream completion.
-
-### 4.2 Execution Memory (LangGraph Checkpointer)
-
-  * **Purpose:** Handling `interrupt` (Human-in-the-Loop) and persisting the full agent state between requests.
-  * **Implementation:** `langgraph_checkpoint_postgres.AsyncPostgresSaver`. The connection will use the async engine from `app.config.db`.
-  * **Key:** The `thread_id` for the checkpointer will be the `ticket_id` from the JWT.
-  * **Isolation:** The `ticket_id` is unique per-tenant chat session, ensuring that one user cannot access another user's graph state.
-
-## 5\. Streaming Protocol (SSE)
-
-**Endpoint:** `POST /api/v1/chat/stream`
-**Format:** `Content-Type: text/event-stream`
-
-### Event Structure
-
-1.  `status`: `{"type": "status", "content": "Searching docs..."}`
-2.  `token`: `{"type": "token", "content": "Hello"}`
-3.  `escalation`: `{"type": "escalation", "content": "Ticket #123 created."}`
-4.  `end`: `{"type": "end", "content": ""}`
-
-## 6\. Development Milestones
-
-### Milestone 1: Infrastructure & Auth (Start Here)
-
-**Goal:** Prove the Handshake and Secure Connection.
-
-  * **Task:** Implement `POST /chat/init`.
-      * *Logic:* Validate Origin -\> Create `Ticket` in DB -\> Return JWT.
-  * **Task:** Implement `get_chat_session` dependency.
-      * *Logic:* Decode JWT -\> Set RLS -\> Yield Session.
-  * **Task:** Implement `POST /chat/stream` (Echo only).
-      * *Logic:* `depends(get_chat_session)` -\> Sleep -\> Yield "Echo".
-  * **Success:** `curl` without token fails (401). `curl` with token streams text.
-
-### Milestone 2: The RAG Pipeline
-
-**Goal:** Connect Vector Search.
-
-  * **Task:** Implement `retrieve_node` inside LangGraph.
-  * **Context:** Use the `tenant_id` extracted from the JWT to filter vector search.
-
-### Milestone 3: Persistence (Hybrid)
-
-**Goal:** Handle Refresh and interruptions.
-
-  * **Task:** Update API to save User Message to `messages` table (UI Memory).
-  * **Task:** Implement `GET /chat/history` to retrieve UI chat history.
-  * **Task:** Integrate `AsyncPostgresSaver` into the agent constructor. The compiled graph should be configured with this checkpointer, using the `ticket_id` from the chat session as the `thread_id`.
-
-### Milestone 4: Semantic Cache (Redis)
-
-**Goal:** Optimize.
-
-  * **Task:** Add `check_cache_node`.
-  * **Key:** `hash(jwt.tenant_id + query)`.
-
-### Milestone 5: Human-in-the-Loop
-
-**Goal:** Safety Net.
-
-  * **Task:** Add `grade_node`.
-  * **Logic:** Confidence \< 0.7 $\rightarrow$ `interrupt`.
-  * **Task:** Create Admin Endpoint `POST /resolve` to resume.
-
------
+-   **Location:** `app/api/deps.py`
+-   **Inputs:** Accepts the JWT via **HTTP Bearer Header** or a **`token` query parameter** (for easier SSE client implementation).
+-   **Logic:**
+    1.  Decodes and validates the JWT. It must contain the `customer` role.
+    2.  Extracts `tenant_id` and `ticket_id` from the payload.
+    3.  Initializes an `AsyncSession` with the database.
+    4.  **Enforces RLS:** Executes `SET app.current_tenant = :tenant_id` on the session to ensure all subsequent queries are isolated to the correct tenant.
+    5.  Yields the `(AsyncSession, ticket_id)` tuple to the endpoint.
+-   **Rule:** Endpoints using this dependency **MUST** fail with a 401 Unauthorized error if the token is missing, invalid, or expired.
 
 ### Reference Code: The Auth Dependency (`app/api/deps.py`)
 
@@ -155,3 +86,125 @@ async def get_chat_session(
     except JWTError:
         raise HTTPException(401, "Invalid or expired session")
 ```
+
+---
+
+## 4. The Agent Architecture (Context-Aware RAG)
+
+We use a **"Contextualize-Retrieve-Generate"** LangGraph flow to handle conversations.
+
+### 4.1. Graph Nodes
+
+1.  **`check_cache_node` (Redis):**
+    -   Checks if the **raw user query** has a high-similarity match in the tenant-specific semantic cache.
+    -   *Hit:* Returns the cached answer immediately and terminates the graph.
+    -   *Miss:* Proceeds to `contextualize_node`.
+
+2.  **`contextualize_node` (The Reformulator):**
+    -   **Input:** The full chat history and the latest user message.
+    -   **Action:** Uses a fast LLM (e.g., GPT-4o-mini) to rewrite the latest message into a standalone, self-contained question. This resolves anaphora (like "it", "that") and context-dependent phrases.
+    -   **Example:**
+        -   *History:* "How do I create a DOCX file?"
+        -   *User:* "How do I export *it* to PDF?"
+        -   *Output:* "How do I export a DOCX file to PDF?"
+
+3.  **`retrieve_node` (Vector Search):**
+    -   **Input:** The **standalone (rephrased) question** from the previous node.
+    -   **Action:** Performs a similarity search against the `documents` table in Supabase (pgvector), automatically filtered by the RLS policy.
+
+4.  **`generate_node` (The Responder):**
+    -   **Input:** The original chat history and the retrieved context chunks.
+    -   **Action:** Generates the final answer, which is streamed back to the user.
+
+5.  **`grade_confidence_node` (Safety Net):**
+    -   **Input:** The generated answer.
+    -   **Action:** An LLM call assesses the confidence of the answer on a scale of 0.0 to 1.0.
+    -   *High Confidence (>0.7):* Proceeds to `END`.
+    -   *Low Confidence (<0.7):* Proceeds to `escalate_node`.
+
+6.  **`escalate_node` (The Bridge):**
+    -   Updates the ticket status in the database to `pending_human`.
+    -   Sends a "bridge message" to the user (e.g., "I need to check this with an expert. Ticket #... created.").
+    -   **Interrupts** the graph execution to await human intervention.
+
+### 4.2. Prompt Engineering
+
+-   **Contextualization Prompt:** *"Given a chat history and the latest user question which might reference context in the chat history, formulate a standalone question which can be understood without the chat history. Do NOT answer the question, just reformulate it if needed and otherwise return it as is."*
+
+---
+
+## 5. State & Memory Management
+
+### 5.1. The `AgentState`
+
+The `TypedDict` that defines the state of our LangGraph agent.
+
+```python
+from typing import TypedDict, Annotated
+from langgraph.graph.message import add_messages, AnyMessage
+
+class AgentState(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]
+    tenant_id: str
+    ticket_id: str
+    rephrased_question: str | None
+    context: list[str] | None
+    answer: str | None
+    is_cache_hit: bool
+```
+
+### 5.2. The Hybrid Memory Strategy
+
+1.  **UI Memory (PostgreSQL `messages` table):**
+    -   **Purpose:** For quickly rendering the chat history in the UI.
+    -   **Write Logic:** The user's message is saved immediately at the start of the `/stream` call. The AI's final, non-streamed message is saved at the end.
+
+2.  **Execution Memory (LangGraph Checkpointer):**
+    -   **Purpose:** Persists the full `AgentState` to handle interruptions (for human-in-the-loop) and resume graph execution.
+    -   **Implementation:** `langgraph_checkpoint_postgres.AsyncPostgresSaver`.
+    -   **Key:** The `thread_id` for the checkpointer is the `ticket_id` from the JWT.
+
+### 5.3. Streaming Protocol (SSE)
+
+-   **Endpoint:** `POST /api/v1/chat/stream`
+-   **Content-Type:** `text/event-stream`
+-   **Event Structure:** The stream consists of multiple JSON-encoded events.
+    1.  `status`: `{"type": "status", "content": "Reformulating question..."}`
+    2.  `token`: `{"type": "token", "content": "The"}` (piece of the generated answer)
+    3.  `escalation`: `{"type": "escalation", "content": "Ticket #123 has been created..."}`
+    4.  `end`: `{"type": "end", "content": ""}`
+
+---
+
+## 6. Unified Development Milestones
+
+1.  **Milestone 1: Infrastructure & Auth (Complete)**
+    -   **Goal:** Secure the chat endpoints and establish the JWT handshake.
+    -   **Tasks:** Implement `POST /chat/init`, the `get_chat_session` dependency, and a dummy `POST /chat/stream` that echoes a message.
+
+2.  **Milestone 2: Naive RAG & UI History**
+    -   **Goal:** Prove the basic RAG pipeline and chat history persistence.
+    -   **Tasks:**
+        -   Implement a simple graph that uses the **raw user message** for retrieval.
+        -   Implement the `retrieve_node` and `generate_node`.
+        -   Save user and AI messages to the `messages` table.
+        -   Implement `GET /chat/history`.
+
+3.  **Milestone 3: Context-Awareness**
+    -   **Goal:** Handle multi-turn, context-dependent questions.
+    -   **Tasks:**
+        -   Add the `contextualize_node` to the graph with the specified prompt.
+        -   Update `retrieve_node` to use the `rephrased_question` from the state.
+
+4.  **Milestone 4: Semantic Caching**
+    -   **Goal:** Reduce latency and cost for repeated questions.
+    -   **Tasks:**
+        -   Implement the `check_cache_node` using Redis.
+        -   The cache key must be namespaced by `tenant_id`.
+
+5.  **Milestone 5: Human-in-the-Loop & Persistence**
+    -   **Goal:** Implement the full agent lifecycle with escalation and state persistence.
+    -   **Tasks:**
+        -   Integrate `AsyncPostgresSaver` as the graph's checkpointer.
+        -   Implement `grade_confidence_node` and `escalate_node` to interrupt the graph.
+        -   Create the admin endpoint (`POST /admin/tickets/{ticket_id}/resolve`) to resume the graph with a human-provided answer.
