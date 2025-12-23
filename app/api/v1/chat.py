@@ -4,7 +4,7 @@ import uuid
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.exceptions import HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.constructor import stream_response as agent_stream_response
@@ -128,6 +128,10 @@ async def send_message(
                 if full_response and not error_occurred:
                     try:
                         async with SessionLocal() as new_db_session:
+                            await new_db_session.execute(
+                                text("SELECT set_config('app.current_tenant', :tenant_id, true)"),
+                                {"tenant_id": tenant_id},
+                            )
                             ai_message = Message(
                                 tenant_id=uuid.UUID(tenant_id),
                                 ticket_id=ticket_id,
