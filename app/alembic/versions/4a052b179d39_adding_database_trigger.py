@@ -36,10 +36,21 @@ def upgrade() -> None:
         sa.Column(
             "email",
             sa.String(length=255),
-            nullable=False,
+            nullable=True,
             comment="User's email address, synced from auth.users.",
         ),
     )
+
+    # Backfill existing users with email from auth.users
+    op.execute("""
+        UPDATE public.users u
+        SET email = au.email
+        FROM auth.users au
+        WHERE u.id = au.id AND u.email IS NULL
+    """)
+
+    # Now make it NOT NULL after backfilling
+    op.alter_column("users", "email", nullable=False)
     op.create_unique_constraint("uq_users_email", "users", ["email"])
 
     # Create the function to handle new user creation
