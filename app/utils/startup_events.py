@@ -1,7 +1,6 @@
 from typing import Optional
 
 from langchain_postgres import PGVectorStore
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from pydantic import PostgresDsn
 
 from app.agent import constructor as agent_constructor
@@ -10,8 +9,6 @@ from app.services.cache import semantic_cache
 from app.services.embeddings import get_embedding_model
 from app.settings import settings
 from app.utils.logging_config import logger
-
-checkpointer: Optional[AsyncPostgresSaver] = None
 
 
 async def initialize_vector_store():
