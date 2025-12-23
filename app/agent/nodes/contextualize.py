@@ -64,6 +64,7 @@ async def contextualize_question(state: AgentState) -> dict:
             return {"rephrased_question": rephrased}
         else:
             return {"rephrased_question": user_question}
-    except Exception as e:
+    except (ValueError, RuntimeError) as e:
+        # Add specific LangChain/Google API exceptions as needed
         logger.error(f"Error in contextualize_question: {e}", exc_info=True)
         return {"rephrased_question": user_question}
