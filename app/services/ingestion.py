@@ -23,7 +23,7 @@ from app.worker import celery_app
 logger = setup_logging()
 
 
-def _handle_ingestion_failure(db, file_id: str, error: Exception):
+def _handle_ingestion_failure(db, file_id: str, error: Exception) -> None:
     logger.exception(f"Ingestion failed for file_id: {file_id}. Error: {error}")
     db.rollback()
     db.query(File).filter(File.id == file_id).update({"status": FileStatus.FAILED})
