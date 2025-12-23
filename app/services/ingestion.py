@@ -32,7 +32,7 @@ def _handle_ingestion_failure(db, file_id: str, error: Exception) -> None:
 
 @celery_app.task(
     name="upload_file_and_trigger_ingestion",
-    autoretry_for=(Exception,),
+    autoretry_for=(StorageException, OSError, IOError),
     retry_kwargs={"max_retries": 3},
     retry_backoff=True,
 )
@@ -63,6 +63,7 @@ def upload_file_and_trigger_ingestion(
         if os.path.exists(local_file_path):
             os.remove(local_file_path)
         db.close()
+        db_session_gen.close()
 
 
 @celery_app.task(
@@ -101,16 +102,18 @@ def ingest_pdf(file_id: str, tenant_id: str, storage_path: str):
         db.query(Document).filter(Document.file_id == file_id).delete(
             synchronize_session=False
         )
+        
+        try:
+            tenant_uuid = uuid.UUID(tenant_id)
+            file_uuid = uuid.UUID(file_id)
+        except ValueError as e:
+            logger.error(
+                f"Invalid UUID format for tenant_id: {tenant_id} or file_id: {file_id}. Error: {e}"
+            )
+            raise
+
         documents_to_add = []
         for i, chunk in enumerate(chunks):
-            try:
-                tenant_uuid = uuid.UUID(tenant_id)
-                file_uuid = uuid.UUID(file_id)
-            except ValueError as e:
-                logger.error(
-                    f"Invalid UUID format for tenant_id: {tenant_id} or file_id: {file_id}. Error: {e}"
-                )
-                raise
             new_doc = Document(
                 id=uuid7(),
                 tenant_id=tenant_uuid,
