@@ -80,33 +80,45 @@ async def stream_response(
         "ticket_id": ticket_id,
         "documents": [],
         "is_cache_hit": False,
+        "rephrased_question": None,
+        "query_embedding": None,
     }
 
     try:
         async for event in runnable.astream_events(
-            initial_state, config=config, version="v1"
+            initial_state, config=config, version="v2"
         ):
             kind = event["event"]
 
             if kind == "on_chain_start":
                 # Only send retrieving status at the start of the graph
+
                 if event["name"] == "LangGraph":
-                    yield json.dumps({"type": "status", "content": "Retrieving documents..."})
+                    yield json.dumps(
+                        {"type": "status", "content": "Retrieving documents..."}
+                    )
 
             if kind == "on_chat_model_stream":
                 chunk = event["data"]["chunk"]
+
                 if isinstance(chunk, AIMessage) and chunk.content:
                     yield json.dumps({"type": "token", "content": chunk.content})
 
             # Handle Cache Hit: The check_cache node outputs a message, but doesn't stream it via LLM.
+
             # We intercept the node output.
+
             if kind == "on_chain_end" and event["name"] == "check_cache":
                 output = event["data"].get("output")
+
                 if output and output.get("is_cache_hit"):
                     # Cache hit! Extract the message and yield it as tokens.
+
                     messages = output.get("messages", [])
+
                     if messages:
                         cached_content = messages[0].content
+
                         yield json.dumps({"type": "token", "content": cached_content})
 
     except Exception as e:
