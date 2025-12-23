@@ -10,8 +10,7 @@ from typing import Optional
 
 _supabase_admin_client: Optional[AsyncClient] = None
 _supabase_admin_lock = asyncio.Lock()
-
-
+_supabase_admin_sync_client: Optional[Client] = None
 
 
 async def supabase_admin() -> AsyncClient:
@@ -25,14 +24,16 @@ async def supabase_admin() -> AsyncClient:
 
 
 def supabase_admin_sync() -> Client:
-    try:
-        supabase_admin_client: Client = create_client(
-            settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY
-        )
-        return supabase_admin_client
-    except SupabaseException as e:
-        logger.error(f"Supabase sync client creation error: {e}")
-        raise # Re-raise the specific exception
+    global _supabase_admin_sync_client
+    if _supabase_admin_sync_client is None:
+        try:
+            _supabase_admin_sync_client = create_client(
+                settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY
+            )
+        except SupabaseException as e:
+            logger.error(f"Supabase sync client creation error: {e}")
+            raise  # Re-raise the specific exception
+    return _supabase_admin_sync_client
 
 
 async def check_supabase_connection():
