@@ -23,8 +23,13 @@ async def check_cache(state: AgentState) -> dict:
     logger.info("---NODE: CHECK CACHE---")
     
     try:
+        # Validate that messages exist and are not empty
+        messages = state.get("messages")
+        if not messages or not isinstance(messages, list) or len(messages) == 0:
+            raise ValueError("No messages found in agent state")
+
         # Get the user's original question
-        user_question = state["messages"][-1].content
+        user_question = messages[-1].content
         tenant_id = state["tenant_id"]
         
         # Get singleton embedding model
