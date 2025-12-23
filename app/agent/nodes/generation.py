@@ -3,6 +3,7 @@
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
+from redis.exceptions import RedisError
 
 from app.agent.state import AgentState
 from app.services.cache import semantic_cache
@@ -76,7 +77,7 @@ async def generate_response(state: AgentState) -> dict:
                 response=response_content
             )
             logger.info("Successfully cached response for future use")
-        except Exception as e:
+        except RedisError as e:
             logger.error(f"Failed to cache response: {e}", exc_info=True)
             # Don't fail the main flow if caching fails
     
