@@ -61,8 +61,18 @@ async def check_cache(state: AgentState) -> dict:
             
     except Exception as e:
         logger.error(f"Cache check failed: {e}", exc_info=True)
+        
+        # Safely extract user question from state
+        user_question = ""
+        if isinstance(state, dict) and state.get("messages"):
+            last_msg = state["messages"][-1]
+            user_question = getattr(last_msg, "content", "")
+            
+        if not user_question:
+            logger.debug("Falling back to empty string for rephrased_question")
+
         # Fallback: proceed with RAG pipeline if cache fails
         return {
             "is_cache_hit": False,
-            "rephrased_question": state["messages"][-1].content
+            "rephrased_question": user_question
         }
