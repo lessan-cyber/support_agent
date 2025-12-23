@@ -17,7 +17,7 @@ class Tenant(BaseModel):
     name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     plan: Mapped[str] = mapped_column(String(100), nullable=True, default="free")
     allowed_domains: Mapped[list[str]] = mapped_column(
-        ARRAY(String), nullable=True, default=[]
+        ARRAY(String), nullable=True, default=list
     )
 
     # Relationship to users within the same tenant
