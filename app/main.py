@@ -8,39 +8,42 @@ from app.api.v1 import chat as chat_router
 from app.api.v1 import documents as documents_router
 from app.config.redis import check_redis_connection
 from app.config.supabase import check_supabase_connection
+from app.services.cache import semantic_cache
 from app.settings import settings
-from app.utils.startup_events import initialize_vector_store
+from app.utils.logging_config import logger
+from app.utils.startup_events import convert_database_uri, initialize_vector_store
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Handle application startup and shutdown events.
     """
-    # Startup
-    print("---APPLICATION STARTUP---")
     await check_redis_connection()
     await check_supabase_connection()
+
+    try:
+        await semantic_cache.initialize()
+    except Exception as e:
+        logger.warning(
+            f"Semantic cache initialization failed, continuing without cache: {e}"
+        )
+
     await initialize_vector_store()
 
-    checkpointer_db_url = str(settings.DATABASE_URL)
-    if "+asyncpg" in checkpointer_db_url:
-        checkpointer_db_url = checkpointer_db_url.replace("+asyncpg", "")
-    checkpointer_db_url = f"{checkpointer_db_url}?sslmode=disable"
-
-    async with AsyncPostgresSaver.from_conn_string(checkpointer_db_url) as checkpointer:
-        # One-time setup for the checkpointer's table
+    checkpoint_db_url = await convert_database_uri(settings.DATABASE_URL)
+    async with AsyncPostgresSaver.from_conn_string(checkpoint_db_url) as checkpointer:
         await checkpointer.setup()
-
-        # Compile the agent graph with the checkpointer
-        agent_constructor.runnable = agent_constructor.graph.compile(
-            checkpointer=checkpointer
-        )
-        print("---LANGGRAPH CHECKPOINTER AND AGENT ARE READY---")
+        compiled_graph = agent_constructor.graph.compile(checkpointer=checkpointer)
+        agent_constructor.set_runnable(compiled_graph)
+        logger.info("LANGGRAPH CHECKPOINTER AND AGENT ARE READY")
 
         yield
 
-    # Shutdown
-    print("---APPLICATION SHUTDOWN---")
+    try:
+        await semantic_cache.close()
+    except Exception as e:
+        logger.warning(f"Error closing semantic cache: {e}")
 
 
 app = FastAPI(

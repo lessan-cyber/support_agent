@@ -1,22 +1,25 @@
 import json
 import uuid
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, status
+from fastapi.exceptions import HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.agent.constructor import stream_response as agent_stream_response
 from app.api.deps import get_chat_session, get_db_session
 from app.config.db import SessionLocal
 from app.models.message import Message, SenderType
 from app.models.ticket import Ticket
 from app.schemas.chat import (
-    ChatMessage,
     ChatHistoryResponse,
+    ChatMessage,
     InitChatRequest,
     InitChatResponse,
 )
 from app.utils.jwt_manager import create_chat_session_jwt
+from app.utils.logging_config import logger
 from app.utils.tenant_validator import validate_tenant_and_origin
 
 router = APIRouter()
@@ -54,9 +57,8 @@ async def get_history(
     Retrieve the chat history for the current session.
     """
     db_session, _, ticket_id = chat_session
-    print(f"ticket_id: {ticket_id}")
     query = (
-         select(Message)
+        select(Message)
         .where(Message.ticket_id == ticket_id)
         .order_by(Message.created_at.asc())
     )
@@ -77,47 +79,75 @@ async def send_message(
     """
     db_session, tenant_id, ticket_id = chat_session
 
-    # 1. Save user message
-    user_message = Message(
-        tenant_id=uuid.UUID(tenant_id),
-        ticket_id=ticket_id,
-        sender_type=SenderType.USER,
-        content=content.content,
-    )
-    db_session.add(user_message)
-    await db_session.commit()
-
-    # 2. Define a wrapper generator to stream and save the AI response
-    async def response_wrapper():
-        full_response = ""
-        # Create the agent's response generator
-        agent_generator = agent_stream_response(
-            message=content.content,
-            tenant_id=tenant_id,
-            ticket_id=str(ticket_id),
+    try:
+        # 1. Save user message
+        user_message = Message(
+            tenant_id=uuid.UUID(tenant_id),
+            ticket_id=ticket_id,
+            sender_type=SenderType.USER,
+            content=content.content,
         )
+        db_session.add(user_message)
+        await db_session.commit()
 
-        async for chunk_str in agent_generator:
-            yield f"data: {chunk_str}\n\n"
+        # 2. Define a wrapper generator to stream and save the AI response
+        async def response_wrapper():
+            full_response = ""
+            error_occurred = False
+
             try:
-                # Accumulate the content of "token" events
-                chunk_data = json.loads(chunk_str)
-                if chunk_data.get("type") == "token":
-                    full_response += chunk_data.get("content", "")
-            except json.JSONDecodeError:
-                # Ignore chunks that are not valid JSON
-                continue
-
-        # After the stream is finished, save the full AI response in a new session
-        if full_response:
-            async with SessionLocal() as new_db_session:
-                ai_message = Message(
-                    tenant_id=uuid.UUID(tenant_id),
-                    ticket_id=ticket_id,
-                    sender_type=SenderType.AI,
-                    content=full_response.strip(),
+                # Create the agent's response generator
+                agent_generator = agent_stream_response(
+                    message=content.content,
+                    tenant_id=tenant_id,
+                    ticket_id=str(ticket_id),
                 )
-                new_db_session.add(ai_message)
-                await new_db_session.commit()
 
-    return StreamingResponse(response_wrapper(), media_type="text/event-stream")
+                async for chunk_str in agent_generator:
+                    yield f"data: {chunk_str}\n\n"
+                    try:
+                        # Accumulate the content of "token" events
+                        chunk_data = json.loads(chunk_str)
+                        if chunk_data.get("type") == "token":
+                            full_response += chunk_data.get("content", "")
+                        elif chunk_data.get("type") == "error":
+                            error_occurred = True
+                            logger.error(
+                                f"Agent error: {chunk_data.get('content', '')}"
+                            )
+                    except json.JSONDecodeError:
+                        # Ignore chunks that are not valid JSON
+                        continue
+
+            except Exception as e:
+                logger.error(f"Streaming error in response_wrapper: {e}", exc_info=True)
+                yield f"data: {json.dumps({'type': 'error', 'content': 'An error occurred during processing'})}\n\n"
+                error_occurred = True
+            finally:
+                # After the stream is finished, save the full AI response if no error occurred
+                if full_response and not error_occurred:
+                    try:
+                        async with SessionLocal() as new_db_session:
+                            ai_message = Message(
+                                tenant_id=uuid.UUID(tenant_id),
+                                ticket_id=ticket_id,
+                                sender_type=SenderType.AI,
+                                content=full_response.strip(),
+                            )
+                            new_db_session.add(ai_message)
+                            await new_db_session.commit()
+                    except Exception as db_error:
+                        logger.error(
+                            f"Failed to save AI message: {db_error}", exc_info=True
+                        )
+
+        return StreamingResponse(response_wrapper(), media_type="text/event-stream")
+
+    except Exception as e:
+        logger.error(f"Failed to process chat message: {e}", exc_info=True)
+        # Rollback the user message if saving it failed
+        await db_session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process your message",
+        )
