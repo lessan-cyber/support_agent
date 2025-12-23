@@ -20,7 +20,7 @@ async def upload_to_storage(file_stream, storage_path: str):
         logger.error(f"Failed to upload file to storage: {e}")
         raise
 
-def upload_to_storage_sync(file_stream, storage_path: str):
+def upload_to_storage_sync(file_stream, storage_path: str) -> None:
     """
     Uploads a file to the Supabase storage bucket synchronously.
     """
