@@ -22,6 +22,6 @@ async def check_redis_connection():
                 raise ConnectionError(
                     "Redis connection failed: PING command returned False"
                 )
-    except Exception as e:
+    except (redis.ConnectionError, redis.TimeoutError) as e:
         logger.error(f"Redis connection error: {e}")
         raise
