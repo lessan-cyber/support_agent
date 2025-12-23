@@ -43,6 +43,7 @@ async def init_chat(
     new_ticket = Ticket(tenant_id=tenant.id)
     db.add(new_ticket)
     await db.commit()
+    await db.refresh(new_ticket)
     token = create_chat_session_jwt(
         tenant_id=str(tenant.id), ticket_id=str(new_ticket.id)
     )
