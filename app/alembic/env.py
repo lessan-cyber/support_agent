@@ -65,17 +65,18 @@ def run_migrations_offline() -> None:
 async def run_migrations_online() -> None:
     """Run migrations with proper autocommit for pgvector"""
     connectable = create_async_engine(
-        # pyrefly: ignore [bad-argument-type]
         config.get_main_option("sqlalchemy.url"),
         poolclass=pool.NullPool,
     )
 
     try:
         async with connectable.connect() as connection:
-            await connection.execution_options(isolation_level="AUTOCOMMIT")
             await connection.run_sync(
                 lambda sync_conn: context.configure(
-                    connection=sync_conn, target_metadata=target_metadata
+                    connection=sync_conn.execution_options(
+                        isolation_level="AUTOCOMMIT"
+                    ),
+                    target_metadata=target_metadata,
                 )
             )
             await connection.run_sync(lambda sync_conn: context.run_migrations())
@@ -89,3 +90,12 @@ else:
     import asyncio
 
     asyncio.run(run_migrations_online())
+
+"""
+await connection.execution_options(isolation_level="AUTOCOMMIT")
+await connection.run_sync(
+    lambda sync_conn: context.configure(
+        connection=sync_conn, target_metadata=target_metadata
+    )
+)
+"""

@@ -58,7 +58,7 @@ def upgrade() -> None:
         FOR ALL
         USING (tenant_id = current_setting('app.current_tenant')::uuid)
     """)
-    # messages: chat history
+    # files: uploaded documents
     op.execute("""
         CREATE POLICY tenant_isolation ON files
         FOR ALL
@@ -81,9 +81,11 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     # Drop policies in reverse order
-    op.execute("DROP POLICY IF EXISTS admin_only ON alembic_version")
-    op.execute("DROP POLICY IF EXISTS service_role_access ON files")
+    op.execute("DROP POLICY IF EXISTS service_role_access ON tickets")
+    op.execute("DROP POLICY IF EXISTS service_role_access ON documents")
+    op.execute("DROP POLICY IF EXISTS tenant_isolation ON files")
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON messages")
+    op.execute("DROP POLICY IF EXISTS tenant_isolation ON tickets")
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON tickets")
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON documents")
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON users")
@@ -96,4 +98,3 @@ def downgrade() -> None:
     op.execute("ALTER TABLE documents DISABLE ROW LEVEL SECURITY")
     op.execute("ALTER TABLE users DISABLE ROW LEVEL SECURITY")
     op.execute("ALTER TABLE tenants DISABLE ROW LEVEL SECURITY")
-    op.execute("ALTER TABLE alembic_version DISABLE ROW LEVEL SECURITY")

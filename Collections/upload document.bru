@@ -1,11 +1,11 @@
 meta {
   name: upload document
   type: http
-  seq: 3
+  seq: 4
 }
 
 post {
-  url: {{backend_base_url}}api/v1/documents/upload
+  url: {{backend_base_url}}/api/v1/documents/upload
   body: multipartForm
   auth: inherit
 }
@@ -13,11 +13,10 @@ post {
 headers {
   accept: application/json
   Authorization: {{token}}
-  Content-Type: multipart/form-data
 }
 
 body:multipart-form {
-  file: @file(/home/aziz/Downloads/.zapzap_temp/TP_bases_de_donnees (1).pdf)
+  file: @file(/home/aziz/Downloads/GS73-GettingStarted.pdf)
 }
 
 settings {

@@ -20,12 +20,14 @@ class File(BaseModel):
     __tablename__ = "files"
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
     )
     filename: Mapped[str] = mapped_column(String, nullable=False)
     storage_path: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[FileStatus] = mapped_column(
-        Enum(FileStatus, native_enum=False), nullable=False, default=FileStatus.UPLOADING
+        Enum(FileStatus, native_enum=False),
+        nullable=False,
+        default=FileStatus.UPLOADING,
     )
 
     def __repr__(self) -> str:

@@ -20,7 +20,7 @@ class Message(BaseModel):
     __tablename__ = "messages"
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
     )
     ticket_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False
