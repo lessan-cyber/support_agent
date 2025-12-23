@@ -45,6 +45,6 @@ async def check_supabase_connection():
         supabase_client = await supabase_admin()
         await supabase_client.storage.list_buckets()
         logger.info("Supabase connection successful")
-    except StorageException as e:
+    except SupabaseException as e:
         logger.error(f"Supabase connection error: {e}")
         raise
