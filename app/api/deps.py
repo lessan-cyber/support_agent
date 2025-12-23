@@ -129,22 +129,30 @@ async def get_chat_session(
         if payload.get("role") != "customer":
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid role for chat")
 
-        tenant_id = payload.get("tenant_id")
-        ticket_id = payload.get("ticket_id")
+        tenant_id_val = payload.get("tenant_id")
+        ticket_id_val = payload.get("ticket_id")
 
-        if not tenant_id or not ticket_id:
+        if not tenant_id_val or not ticket_id_val:
             raise HTTPException(
                 status.HTTP_401_UNAUTHORIZED, "Token missing required claims"
+            )
+
+        try:
+            tenant_id = uuid.UUID(tenant_id_val)
+            ticket_id = uuid.UUID(ticket_id_val)
+        except ValueError:
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED, "Invalid UUID in token claims"
             )
 
         # 2. Configure DB Session with RLS
         async with SessionLocal() as session:
             await session.execute(
                 text("SELECT set_config('app.current_tenant', :tenant_id, true)"),
-                {"tenant_id": tenant_id},
+                {"tenant_id": str(tenant_id)},
             )
             # Yield the session, tenant_id, AND ticket_id for the logic
-            yield session, tenant_id, uuid.UUID(ticket_id)
+            yield session, str(tenant_id), ticket_id
 
     except (PyJWTError, ValueError) as e:
         logging.warning(f"Chat session token error: {e}")
