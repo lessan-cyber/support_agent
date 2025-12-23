@@ -12,12 +12,11 @@ from app.models.file import File, FileStatus
 from app.models.user import User
 from app.schemas.file import FileUploadResponse
 from app.services.ingestion import upload_file_and_trigger_ingestion
+from app.settings import settings
 from app.utils.file_validator import validate_pdf
 from app.utils.logging_config import logger
 
 router = APIRouter()
-
-MAX_FILE_SIZE = 20 * 1024 * 1024
 
 
 @router.post(
@@ -57,10 +56,10 @@ async def upload_document(
         with open(temp_file_path, "wb") as buffer:
             while chunk := await file.read(4096):
                 total_size += len(chunk)
-                if total_size > MAX_FILE_SIZE:
+                if total_size > settings.MAX_FILE_SIZE:
                     os.remove(temp_file_path)
                     raise HTTPException(
-                        status_code=413, detail="File size exceeds the 10MB limit."
+                        status_code=413, detail="File size exceeds the 20MB limit."
                     )
                 buffer.write(chunk)
 
