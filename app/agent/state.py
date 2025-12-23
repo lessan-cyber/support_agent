@@ -11,4 +11,7 @@ class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
     tenant_id: str
     ticket_id: str
+    rephrased_question: str | None
+    query_embedding: list[float] | None
     documents: list[Document]
+    is_cache_hit: bool

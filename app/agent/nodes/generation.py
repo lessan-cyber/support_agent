@@ -5,7 +5,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.agent.state import AgentState
+from app.services.cache import semantic_cache
 from app.settings import settings
+from app.utils.logging_config import logger
 
 # 1. Initialize the LLM
 llm = ChatGoogleGenerativeAI(
@@ -33,6 +35,7 @@ prompt = ChatPromptTemplate.from_messages(
 async def generate_response(state: AgentState) -> dict:
     """
     Generate an answer to the user's question based on the retrieved documents.
+    If this is not a cache hit, also cache the successful response.
 
     Args:
         state (AgentState): The current state of the agent.
@@ -40,9 +43,15 @@ async def generate_response(state: AgentState) -> dict:
     Returns:
         dict: A dictionary containing the AIMessage to be added to the state.
     """
-    print("---NODE: GENERATE RESPONSE---")
+    logger.info("---NODE: GENERATE RESPONSE---")
     user_question = state["messages"][-1].content
+    # Use rephrased question for generation context if available
+    generation_question = state.get("rephrased_question") or user_question
+    
     documents = state["documents"]
+    tenant_id = state["tenant_id"]
+    is_cache_hit = state.get("is_cache_hit", False)
+    query_embedding = state.get("query_embedding")
 
     # Format the documents into a string for the prompt context
     context_str = "\n\n---\n\n".join(
@@ -51,8 +60,24 @@ async def generate_response(state: AgentState) -> dict:
 
     # Create the chain and invoke it
     chain = prompt | llm
-    response = await chain.ainvoke({"context": context_str, "question": user_question})
-
-    print(f"---LLM RESPONSE: {response.content}---")
-
-    return {"messages": [AIMessage(content=response.content)]}
+    response = await chain.ainvoke({"context": context_str, "question": generation_question})
+    
+    response_content = response.content
+    result = {"messages": [AIMessage(content=response_content)]}
+    
+    # Only cache responses that were not cache hits (avoid duplicate caching)
+    if not is_cache_hit and query_embedding:
+        try:
+            # Cache the successful response using the embedding from state
+            await semantic_cache.cache_response(
+                tenant_id=tenant_id,
+                query_embedding=query_embedding,
+                query_text=user_question,
+                response=response_content
+            )
+            logger.info("Successfully cached response for future use")
+        except Exception as e:
+            logger.error(f"Failed to cache response: {e}", exc_info=True)
+            # Don't fail the main flow if caching fails
+    
+    return result
