@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import jwt
 from fastapi import Depends, HTTPException, Query, Request, status
@@ -77,7 +77,14 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
         )
-    _ = user.tenant.id
+
+    # Assert user has a tenant for RLS context and data integrity
+    if not user.tenant:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is not associated with any tenant.",
+        )
+
     await db.execute(
         text("SELECT set_config('app.current_tenant', :tenant_id, true)"),
         {"tenant_id": str(user.tenant_id)},
