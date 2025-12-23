@@ -1,4 +1,4 @@
-"Node for generating a response based on retrieved documents."
+"""Node for generating a response based on retrieved documents."""
 
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate
