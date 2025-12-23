@@ -38,7 +38,7 @@ async def rls_tenant_middleware(
     except ValueError:
         raise HTTPException(
             status_code=422, detail="Invalid X-Tenant-ID format (must be a valid UUID)"
-        )
+        ) from None
 
     request.state.tenant_id = tenant_id
     # pyrefly: ignore [not-async]
