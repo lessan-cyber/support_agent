@@ -2,6 +2,7 @@ import json
 from typing import Any, AsyncGenerator, Optional
 
 from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.runnables import Runnable
 from langgraph.graph import END, START, StateGraph
 
 from app.agent.nodes.cache_check import check_cache
@@ -35,10 +36,10 @@ graph.add_edge("generate", END)
 
 # `runnable` is now a placeholder, to be compiled in `main.py`'s lifespan.
 # This will be set via dependency injection rather than global variable
-_runnable: Optional[Any] = None
+_runnable: Optional[Runnable] = None
 
 
-def get_runnable() -> Any:
+def get_runnable() -> Runnable:
     """Get the compiled runnable graph."""
     if _runnable is None:
         raise RuntimeError(
@@ -47,7 +48,7 @@ def get_runnable() -> Any:
     return _runnable
 
 
-def set_runnable(runnable_graph: Any) -> None:
+def set_runnable(runnable_graph: Runnable) -> None:
     """Set the compiled runnable graph."""
     global _runnable
     _runnable = runnable_graph
