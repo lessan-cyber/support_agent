@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     CHAT_SESSION_EXPIRE_HOURS: int = Field(
         default=24, alias="CHAT_SESSION_EXPIRE_HOURS"
     )
+    
+    # Agent Configuration
+    MAX_RETRIEVED_DOCS: int = Field(default=4, alias="MAX_RETRIEVED_DOCS")
+    MAX_CHAT_HISTORY: int = Field(default=10, alias="MAX_CHAT_HISTORY")
+    
+    # Cache Configuration
+    CACHE_SIMILARITY_THRESHOLD: float = Field(default=0.9, alias="CACHE_SIMILARITY_THRESHOLD")
+    CACHE_TTL_SECONDS: int = Field(default=604800, alias="CACHE_TTL_SECONDS")  # 7 days
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

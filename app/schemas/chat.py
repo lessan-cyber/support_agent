@@ -3,7 +3,7 @@ from typing import List
 
 from pydantic import BaseModel
 
-from app.models.message import Message, SenderType
+from app.models.message import SenderType
 
 
 class ChatMessage(BaseModel):
@@ -26,7 +26,6 @@ class MessageResponse(BaseModel):
     ticket_id: uuid.UUID
     sender_type: SenderType
     content: str
-
 
     class Config:
         from_attributes = True
