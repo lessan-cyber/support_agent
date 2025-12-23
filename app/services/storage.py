@@ -1,11 +1,12 @@
 """Service for interacting with Supabase Storage."""
 
+from typing import BinaryIO
 from app.config.supabase import supabase_admin, supabase_admin_sync
 from app.settings import settings
 from app.utils.logging_config import logger
 
 
-async def upload_to_storage(file_stream, storage_path: str):
+async def upload_to_storage(file_stream: BinaryIO, storage_path: str):
     """
     Uploads a file to the Supabase storage bucket.
     """
@@ -16,11 +17,11 @@ async def upload_to_storage(file_stream, storage_path: str):
             file=file_stream,
         )
         logger.info(f"File uploaded to storage at path: {storage_path}")
-    except Exception as e:
-        logger.error(f"Failed to upload file to storage: {e}")
+    except Exception as exc:
+        logger.error(f"Failed to upload file to storage: {exc}", exc_info=True)
         raise
 
-def upload_to_storage_sync(file_stream, storage_path: str) -> None:
+def upload_to_storage_sync(file_stream: BinaryIO, storage_path: str) -> None:
     """
     Uploads a file to the Supabase storage bucket synchronously.
     """
@@ -31,6 +32,6 @@ def upload_to_storage_sync(file_stream, storage_path: str) -> None:
             file=file_stream,
         )
         logger.info(f"File uploaded to storage at path: {storage_path}")
-    except Exception as e:
-        logger.error(f"Failed to upload file to storage: {e}")
+    except Exception as exc:
+        logger.error(f"Failed to upload file to storage: {exc}", exc_info=True)
         raise
