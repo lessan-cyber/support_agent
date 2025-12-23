@@ -3,6 +3,7 @@
 from typing import Optional
 
 from langchain_core.messages import AIMessage
+from redis.exceptions import RedisError
 
 from app.agent.state import AgentState
 from app.services.cache import semantic_cache
@@ -64,20 +65,27 @@ async def check_cache(state: AgentState) -> dict:
                 "query_embedding": query_embedding
             }
             
-    except Exception as e:
-        logger.error(f"Cache check failed: {e}", exc_info=True)
+    except (RedisError, ValueError, RuntimeError, OSError) as e:
+        logger.error(f"Cache check failed with specific error: {e}", exc_info=True)
+        return _handle_fallback(state)
         
-        # Safely extract user question from state
-        user_question = ""
-        if isinstance(state, dict) and state.get("messages"):
-            last_msg = state["messages"][-1]
-            user_question = getattr(last_msg, "content", "")
-            
-        if not user_question:
-            logger.debug("Falling back to empty string for rephrased_question")
+    except Exception as e:
+        logger.error(f"Cache check failed with unexpected error: {e}", exc_info=True)
+        return _handle_fallback(state)
 
-        # Fallback: proceed with RAG pipeline if cache fails
-        return {
-            "is_cache_hit": False,
-            "rephrased_question": user_question
-        }
+def _handle_fallback(state: AgentState) -> dict:
+    """Helper to handle fallback when cache check fails."""
+    # Safely extract user question from state
+    user_question = ""
+    if isinstance(state, dict) and state.get("messages"):
+        last_msg = state["messages"][-1]
+        user_question = getattr(last_msg, "content", "")
+        
+    if not user_question:
+        logger.debug("Falling back to empty string for rephrased_question")
+
+    # Fallback: proceed with RAG pipeline if cache fails
+    return {
+        "is_cache_hit": False,
+        "rephrased_question": user_question
+    }
