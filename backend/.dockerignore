@@ -1,0 +1,101 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments (only exclude local development venvs, not build/.venv)
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Documentation
+*.md
+!README.md
+!AGENTS.md
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Reference files
+reference/
+Collections/
+.coderabbit.yaml
+
+# Test files
+tests/
+test_*.py
+*_test.py
+
+# Bruno API collections
+*.bru
+bruno.json
+
+# Alembic
+alembic/versions/*.py
+!alembic/versions/__init__.py
+
+# Build artifacts
+*.so
+*.o
+*.a
+
+# Misc
+MILESTONE_*.md
+.ruff_cache/
+.pytest_cache/
