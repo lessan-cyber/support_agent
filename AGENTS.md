@@ -1,9 +1,3 @@
-Here is the **AGENT.md** file.
-
-Save this file in the root of your project (e.g., `.cursorrules`, `.windsurfrules` or simply `AGENT.md`). Whenever you start a new session with an AI coding assistant (Cursor, Copilot, Windsurf), tell it: **"Read AGENT.md first and apply these rules to all code generation."**
-
------
-
 # AGENT.md - AI Developer Instructions & Context
 
 ## 1\. Project Overview & Persona

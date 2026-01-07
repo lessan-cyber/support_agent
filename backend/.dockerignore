@@ -54,7 +54,6 @@ htmlcov/
 *.sqlite3
 
 # Documentation
-docs/
 *.md
 !README.md
 !AGENTS.md
@@ -79,6 +78,7 @@ Collections/
 .coderabbit.yaml
 
 # Test files
+tests/
 test_*.py
 *_test.py
 
@@ -90,6 +90,12 @@ bruno.json
 alembic/versions/*.py
 !alembic/versions/__init__.py
 
-# Build artifacts (for runtime stage)
-/opt/venv/**/*.so
-/opt/venv/**/*.o
+# Build artifacts
+*.so
+*.o
+*.a
+
+# Misc
+MILESTONE_*.md
+.ruff_cache/
+.pytest_cache/
