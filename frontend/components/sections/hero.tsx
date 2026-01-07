@@ -1,3 +1,5 @@
+import { HeroBackground } from './hero-bg';
+
 import Spline from '@splinetool/react-spline/next';
 
 export default function Hero() {
