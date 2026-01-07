@@ -1,5 +1,4 @@
 import { CardDemo } from "@/components/auth/login";
-import { AuthBackground } from "@/components/layout/auth-bg";
 
 
 export default function LoginPage() {
