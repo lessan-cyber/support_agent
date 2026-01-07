@@ -36,6 +36,7 @@ services:
         build:
             context: ./backend
             dockerfile: Dockerfile
+            target: runtime
         ports:
             - "9000:8000"
         env_file: .env
@@ -60,6 +61,7 @@ services:
         build:
             context: ./backend
             dockerfile: Dockerfile
+            target: runtime
         env_file: .env
         depends_on:
             #db:
