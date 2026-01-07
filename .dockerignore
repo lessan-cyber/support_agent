@@ -79,10 +79,6 @@ Collections/
 .coderabbit.yaml
 
 # Test files
-<<<<<<< HEAD
-tests/
-=======
->>>>>>> 0d34567 (fix: moving all the backend relatate code into the backend folder)
 test_*.py
 *_test.py
 
@@ -94,18 +90,6 @@ bruno.json
 alembic/versions/*.py
 !alembic/versions/__init__.py
 
-<<<<<<< HEAD
-# Build artifacts
-*.so
-*.o
-*.a
-
-# Misc
-MILESTONE_*.md
-.ruff_cache/
-.pytest_cache/
-=======
 # Build artifacts (for runtime stage)
 /opt/venv/**/*.so
 /opt/venv/**/*.o
->>>>>>> 0d34567 (fix: moving all the backend relatate code into the backend folder)

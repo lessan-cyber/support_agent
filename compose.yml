@@ -36,6 +36,7 @@ services:
         build:
             context: ./backend
             dockerfile: Dockerfile
+            target: runtime
         ports:
             - "9000:8000"
         env_file: .env
@@ -54,22 +55,13 @@ services:
                 "0.0.0.0",
                 "--port",
                 "8000",
-                "--reload",
             ]
-        develop:
-            watch:
-                - action: sync
-                  path: ./backend/app
-                  target: /backend/app
-                  ignore: alembic
-                - action: rebuild
-                  path: ./backend/pyproject.toml
-                  target: /backend/pyproject.toml
 
     worker:
         build:
             context: ./backend
             dockerfile: Dockerfile
+            target: runtime
         env_file: .env
         depends_on:
             #db:
