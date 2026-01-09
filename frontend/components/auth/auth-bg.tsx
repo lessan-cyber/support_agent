@@ -14,7 +14,7 @@ export const AuthBackground = ({children}: {children: React.ReactNode}): React.R
             <div
                 className="absolute inset-0 z-0 hidden dark:block"
                 style={{
-                background: "#0f172a",
+                background: "#06080e",
                 backgroundImage: `
                     radial-gradient(circle, rgba(255, 255, 255, 0.2) 1.5px, transparent 1.5px)
                 `,

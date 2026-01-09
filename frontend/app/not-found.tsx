@@ -3,7 +3,7 @@ import { ArrowLeft, Home, Search, HelpCircle } from "lucide-react";
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-slate-50 to-white dark:from-[#020617] dark:to-[#0f172a] relative overflow-hidden transition-colors duration-300">
+    <div className="min-h-screen w-full bg-linear-to-b from-slate-50 to-white dark:from-[#020617] dark:to-[#0f172a] relative overflow-hidden transition-colors duration-300">
       {/* Background Effects */}
       <div
         className="absolute inset-0 z-0"
@@ -23,12 +23,12 @@ export default function NotFound() {
           {/* 404 Animation */}
           <div className="relative inline-block">
             {/* Glow Effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 via-purple-500/20 to-blue-600/20 rounded-3xl blur-3xl animate-pulse" />
+            <div className="absolute inset-0 bg-linear-to-r from-cyan-400/20 via-purple-500/20 to-blue-600/20 rounded-3xl blur-3xl animate-pulse" />
             
             {/* 404 Text */}
             <div className="relative">
               <h1 className="text-[12rem] md:text-[16rem] font-black leading-none">
-                <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">
+                <span className="bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">
                   404
                 </span>
               </h1>
@@ -60,7 +60,7 @@ export default function NotFound() {
               href="/"
               className="group relative px-8 py-3.5 rounded-full font-semibold text-white overflow-hidden shadow-xl shadow-purple-500/30 dark:shadow-purple-500/20 transition-all hover:shadow-2xl hover:shadow-purple-500/40 w-full sm:w-auto"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 transition-transform group-hover:scale-105" />
+              <div className="absolute inset-0 bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 transition-transform group-hover:scale-105" />
               <span className="relative flex items-center justify-center gap-2">
                 <Home className="w-5 h-5" />
                 Back to Home

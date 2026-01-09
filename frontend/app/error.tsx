@@ -15,7 +15,7 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-slate-50 to-white dark:from-[#020617] dark:to-[#0f172a] relative overflow-hidden transition-colors duration-300">
+    <div className="min-h-screen w-full bg-linear-to-b from-slate-50 to-white dark:from-[#020617] dark:to-[#0f172a] relative overflow-hidden transition-colors duration-300">
       {/* Background Effects */}
       <div
         className="absolute inset-0 z-0"
@@ -35,10 +35,10 @@ export default function Error({
           {/* Error Icon with Animation */}
           <div className="relative inline-flex">
             {/* Glow Effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 via-orange-500/20 to-red-600/20 rounded-full blur-3xl animate-pulse" />
+            <div className="absolute inset-0 bg-linear-to-br from-red-500/20 via-orange-500/20 to-red-600/20 rounded-full blur-3xl animate-pulse" />
             
             {/* Icon Container */}
-            <div className="relative bg-gradient-to-br from-red-100 to-orange-100 dark:from-red-950/50 dark:to-orange-950/50 rounded-full p-8 border-2 border-red-200 dark:border-red-800/50 shadow-2xl">
+            <div className="relative bg-linear-to-br from-red-100 to-orange-100 dark:from-red-950/50 dark:to-orange-950/50 rounded-full p-8 border-2 border-red-200 dark:border-red-800/50 shadow-2xl">
               <AlertTriangle className="w-24 h-24 text-red-600 dark:text-red-400" strokeWidth={1.5} />
             </div>
           </div>
@@ -74,7 +74,7 @@ export default function Error({
               onClick={reset}
               className="group relative px-8 py-3.5 rounded-full font-semibold text-white overflow-hidden shadow-xl shadow-red-500/30 dark:shadow-red-500/20 transition-all hover:shadow-2xl hover:shadow-red-500/40 w-full sm:w-auto"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-red-500 via-orange-500 to-red-600 transition-transform group-hover:scale-105" />
+              <div className="absolute inset-0 bg-linear-to-r from-red-500 via-orange-500 to-red-600 transition-transform group-hover:scale-105" />
               <span className="relative flex items-center justify-center gap-2">
                 <RefreshCcw className="w-5 h-5" />
                 Try Again
