@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Switch } from "@/components/ui/switch"
 import Link from "next/link"
+import { useRouter } from "next/navigation";
 
 // This is sample data
 const data = {
@@ -31,19 +32,19 @@ const data = {
   navMain: [
     {
       title: "Inbox",
-      url: "#",
+      url: "/dashboard/inbox/messages",
       icon: Inbox,
       isActive: true,
     },
     {
       title: "Drafts",
-      url: "#",
+      url: "/dashboard/inbox/mas",
       icon: File,
       isActive: false,
     },
     {
       title: "Sent",
-      url: "#",
+      url: "/dashboard/inbox/mis",
       icon: Send,
       isActive: false,
     },
@@ -150,11 +151,13 @@ const files = {
         id: 0,
         title: "Add Document",
         icon: Plus,
+        url: "#",
     },
     addedfiles:{
         id: 1,
         title: "All Documents",
         icon: FileInput,
+        url: "#",
     userdocuments: [
         {
             id: 1,
@@ -186,6 +189,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [activeItem, setActiveItem] = React.useState(data.navMain[0])
   const [mails, setMails] = React.useState(data.mails)
   const { setOpen } = useSidebar()
+  const router = useRouter();
 
   return (
     <Sidebar
@@ -245,7 +249,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         children: files.add.title,
                         hidden: false,
                     }}
-                    className="px-2.5 md:px-2 bg-primary text-primary-foreground rounded-lg mb-2"
+                    className="px-2.5 md:px-2 bg-primary text-primary-foreground rounded-lg mb-2 cursor-pointer"
                     >
                     <files.add.icon />
                     <span>{files.add.title}</span>
@@ -301,6 +305,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           )
                         )
                         setOpen(true)
+                        router.push(item.url);
                       }}
                       isActive={activeItem?.title === item.title}
                       className="px-2.5 md:px-2"
