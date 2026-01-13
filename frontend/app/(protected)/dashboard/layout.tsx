@@ -14,9 +14,11 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { MessageComponent } from "@/components/dashboard/message";
+import { Chatbot } from "@/components/dashboard/Chatbot";
 
 export default function DashboarLayout() {
   return (
+    <>
     <SidebarProvider
       style={
         {
@@ -51,5 +53,8 @@ export default function DashboarLayout() {
         </main>
       </SidebarInset>
     </SidebarProvider>
+          {/* Chatbot flottant */}
+      <Chatbot />
+    </>
   )
 }

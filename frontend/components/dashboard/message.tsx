@@ -40,6 +40,16 @@ function MessageBody(content: string) {
 function MessageFooter(date: string) {
   return <div className="mt-4 text-xs text-gray-500">
     Sent on: {date}
+    <div className="flex my-4 gap-4">
+      <Button>
+        <ReplyIcon />
+        <span className="">Reply</span>
+      </Button>
+      <Button className="ml-2">
+        <ForwardIcon />
+        <span className="">Forward</span>
+      </Button>
+    </div>
   </div>;
 }
 
@@ -57,10 +67,11 @@ export function MessageComponent({
   date: string;
 }) {
   return (
-    <div className="p-4 border-b border-gray-200">
+    <><div className="p-4 border-b border-gray-200">
       {MessageHeader(user)}
       {MessageBody(content)}
-      {MessageFooter(date)}
     </div>
+      {MessageFooter(date)}
+    </>
   );
 }
