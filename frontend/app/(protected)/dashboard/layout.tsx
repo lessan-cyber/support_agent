@@ -16,7 +16,7 @@ import {
 import { MessageComponent } from "@/components/dashboard/message";
 import { Chatbot } from "@/components/dashboard/Chatbot";
 
-export default function DashboarLayout() {
+export default function DashboarLayout({children}: {children: React.ReactNode}) {
   return (
     <>
     <SidebarProvider
@@ -48,7 +48,8 @@ export default function DashboarLayout() {
         </header>
         {/* Main content */}
         <main className="flex-1 p-6">
-          <MessageComponent user={{name: "John Doe", email: "john.doe@example.com", avatar: "/avatars/01.png"}} content="This is a sample message." date="2023-10-15" />
+          {/* <MessageComponent user={{name: "John Doe", email: "john.doe@example.com", avatar: "/avatars/01.png"}} content="This is a sample message." date="2023-10-15" /> */}
+          {children}
             
         </main>
       </SidebarInset>

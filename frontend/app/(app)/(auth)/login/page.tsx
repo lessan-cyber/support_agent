@@ -1,10 +1,11 @@
-import { Login } from "@/components/auth/login";
+import LoginPage from "@/components/auth/login";
 
-export default function LoginPage() {
+
+export default function Login() {
   return (
     
         <div className="relative flex min-h-screen items-center justify-center px-4 z-10">
-            <Login />
+            <LoginPage />
         </div>
     );
 }

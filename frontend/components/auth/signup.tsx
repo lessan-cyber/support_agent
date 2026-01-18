@@ -15,13 +15,13 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { loginSchema, type LoginInput } from "@/lib/validations/auth"
-import { login, loginWithGoogle } from "@/app/actions/auth"
+import { signupSchema, type SignupInput } from "@/lib/validations/auth"
+import { signup, loginWithGoogle } from "@/app/actions/auth"
 import { useState, useTransition } from "react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
 
-export default function LoginPage() {
+export default function SignupPage() {
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   
@@ -29,21 +29,21 @@ export default function LoginPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginInput>({
-    resolver: zodResolver(loginSchema),
+  } = useForm<SignupInput>({
+    resolver: zodResolver(signupSchema),
   })
 
-  const onSubmit = (data: LoginInput) => {
+  const onSubmit = (data: SignupInput) => {
     setError(null)
     startTransition(async () => {
-      const result = await login(data)
+      const result = await signup(data)
       if (result?.error) {
         setError(result.error)
       }
     })
   }
 
-  const handleGoogleLogin = () => {
+  const handleGoogleSignup = () => {
     startTransition(async () => {
       const result = await loginWithGoogle()
       if (result?.error) {
@@ -55,13 +55,13 @@ export default function LoginPage() {
   return (
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Login to your account</CardTitle>
+          <CardTitle>Register a new account</CardTitle>
           <CardDescription>
-            Enter your email below to login to your account
+            Enter your email below to register a new account
           </CardDescription>
           <CardAction>
             <Button asChild variant="link">
-              <Link href="/signup">Sign Up</Link>
+              <Link href="/login">Sign In</Link>
             </Button>
           </CardAction>
         </CardHeader>
@@ -74,6 +74,20 @@ export default function LoginPage() {
             )}
             
             <div className="flex flex-col gap-6">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Your Name"
+                  {...register("name")}
+                  disabled={isPending}
+                />
+                {errors.name && (
+                  <p className="text-sm text-destructive">{errors.name.message}</p>
+                )}
+              </div>
+              
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -89,15 +103,7 @@ export default function LoginPage() {
               </div>
               
               <div className="grid gap-2">
-                <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
-                  <a
-                    href="/forgot-password"
-                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                  >
-                    Forgot your password?
-                  </a>
-                </div>
+                <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
                   type="password"
@@ -115,20 +121,20 @@ export default function LoginPage() {
                 {isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Connexion...
+                    Inscription...
                   </>
                 ) : (
-                  'Login'
+                  'Sign Up'
                 )}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 className="w-full"
-                onClick={handleGoogleLogin}
+                onClick={handleGoogleSignup}
                 disabled={isPending}
               >
-                Login with Google
+                Sign up with Google
               </Button>
             </CardFooter>
           </form>

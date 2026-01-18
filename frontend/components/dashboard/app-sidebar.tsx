@@ -21,12 +21,14 @@ import {
 import { Switch } from "@/components/ui/switch"
 import Link from "next/link"
 import { useRouter } from "next/navigation";
+import { useUser, useUsers } from "@/hooks/use-user"
+import { signOut } from "@/app/actions/auth"
 
 // This is sample data
 const data = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
+    name: "Joseph Bourne",
+    email: "joe@gmail.com",
     avatar: "/avatars/shadcn.jpg",
   },
   navMain: [
@@ -59,6 +61,12 @@ const data = {
       url: "#",
       icon: Trash2,
       isActive: false,
+    },
+    {
+    title: "All Documents",
+    icon: FileInput,
+    url: "#",
+    isActive: false,
     },
   ],
 
@@ -153,11 +161,7 @@ const files = {
         icon: Plus,
         url: "#",
     },
-    addedfiles:{
-        id: 1,
-        title: "All Documents",
-        icon: FileInput,
-        url: "#",
+
     userdocuments: [
         {
             id: 1,
@@ -181,7 +185,7 @@ const files = {
         },
     ]
 }
-}
+
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   // Note: I'm using state to show active item.
@@ -191,10 +195,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { setOpen } = useSidebar()
   const router = useRouter();
 
+    const { user, profile, loading } = useUser()
+    const [showMenu, setShowMenu] = React.useState(false)
+    const [isPending, startTransition] = React.useTransition()
+  
+    const handleSignOut = () => {
+      startTransition(async () => {
+        await signOut()
+      })
+    }
+  
+    if (loading || !user) return null
+
   return (
     <Sidebar
       collapsible="icon"
-      className="overflow-hidden *:data-[sidebar=sidebar]:flex-row"
+      className="overflow-hidden *:data-[sidebar=sidebar]:flex-row bg-background"
       {...props}
     >
       {/* This is the first sidebar */}
@@ -202,7 +218,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       {/* This will make the sidebar appear as icons. */}
       <Sidebar
         collapsible="none"
-        className="w-[calc(var(--sidebar-width-icon)+1px)]! border-r"
+        className="w-[calc(var(--sidebar-width-icon)+1px)]! border-r bg-background"
       >
         <SidebarHeader>
           <SidebarMenu>
@@ -211,8 +227,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <div>                {/* <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg"> */}
                     <Link href="/" className="flex items-center gap-3 group">
                         <div className="relative size-8 rounded-lg overflow-hidden">
-                            <div className="absolute inset-0 bg-gradient-to-br from-cyan-400 via-purple-500 to-purple-600 blur-sm opacity-75 group-hover:opacity-100 transition-opacity" />
-                            <div className="relative w-full h-full bg-gradient-to-br from-cyan-400 to-purple-600 flex items-center justify-center">
+                            <div className="absolute inset-0 bg-linear-to-br from-cyan-400 via-purple-500 to-purple-600 blur-sm opacity-75 group-hover:opacity-100 transition-opacity" />
+                            <div className="relative w-full h-full bg-linear-to-br from-cyan-400 to-purple-600 flex items-center justify-center">
                             <svg
                                 className="w-6 h-6 text-white"
                                 fill="none"
@@ -243,7 +259,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarGroup>
             <SidebarGroupContent className="px-1.5 md:px-0">
                 <SidebarMenu>
-                <SidebarMenuItem key={files.add.title}>
+                <SidebarMenuItem >
                     <SidebarMenuButton
                     tooltip={{
                         children: files.add.title,
@@ -270,7 +286,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     </SidebarMenuButton>
                     </SidebarMenuItem>
                 ))} */}
-                 <SidebarMenuItem key={files.addedfiles.title}>
+                 {/* <SidebarMenuItem>
                     <SidebarMenuButton
                     tooltip={{
                         children: files.addedfiles.title,
@@ -281,7 +297,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     <files.addedfiles.icon />
                     <span>{files.addedfiles.title}</span>
                     </SidebarMenuButton>
-                </SidebarMenuItem>
+                </SidebarMenuItem> */}
                 </SidebarMenu>
             </SidebarGroupContent>
             </SidebarGroup>
@@ -320,13 +336,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter>
-          <NavUser user={data.user} />
+          <NavUser user={{ name: profile?.name || "User", email: profile?.email || "user@example.com", avatar: profile?.avatar_url || "/avatars/default.jpg" }} />
         </SidebarFooter>
       </Sidebar>
 
       {/* This is the second sidebar */}
       {/* We disable collapsible and let it fill remaining space */}
-      <Sidebar collapsible="none" className="hidden flex-1 md:flex">
+      
+      <Sidebar collapsible="none" className="hidden flex-1 md:flex dark:bg-background">
         <SidebarHeader className="gap-3.5 border-b p-4">
           <div className="flex w-full items-center justify-between">
             <div className="text-foreground text-base font-medium">
