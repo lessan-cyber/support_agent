@@ -2,6 +2,7 @@
 import React from "react"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { NavSidebar } from "@/components/dashboard/nav-sidebar"
+import { Toaster } from "@/components/ui/sonner"
 
 export default function DashboardLayout({
   children,
@@ -10,10 +11,11 @@ export default function DashboardLayout({
 }) {
   return (
     <SidebarProvider
-        style={{ "--sidebar-width": "40px" } as React.CSSProperties}
+        style={{ "--sidebar-width": "50px" } as React.CSSProperties}
         >
       <NavSidebar />
       <SidebarInset>
+        <Toaster />
         {children}
       </SidebarInset>
     </SidebarProvider>

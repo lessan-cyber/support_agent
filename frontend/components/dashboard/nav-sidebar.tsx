@@ -18,8 +18,8 @@ import {
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useUser } from "@/hooks/use-user"
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
-// import { PdfUploader } from "@/components/pdf-uploader"
+import { Dialog, DialogContent, DialogHeader, DialogTrigger } from "@/components/ui/dialog"
+import { PdfUploader } from "@/components/pdf-uploader"
 
 const navItems = [
   {
@@ -118,7 +118,8 @@ export function NavSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     </SidebarMenuButton>
                   </DialogTrigger>
                   <DialogContent className="max-w-3xl">
-                    {/* <PdfUploader /> */}
+                    <DialogHeader title="Upload Document" />
+                    <PdfUploader />
                   </DialogContent>
                 </Dialog>
               </SidebarMenuItem>
