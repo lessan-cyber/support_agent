@@ -1,4 +1,3 @@
-// utils/supabase/client.ts
 // Client Supabase pour les composants côté client
 import { createBrowserClient } from '@supabase/ssr'
 
