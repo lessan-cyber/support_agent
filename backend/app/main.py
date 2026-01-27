@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.agent import constructor as agent_constructor
 from app.api.v1 import admin as admin_router
@@ -11,6 +13,7 @@ from app.config.redis import check_redis_connection
 from app.config.supabase import check_supabase_connection
 from app.services.cache import semantic_cache
 from app.settings import settings
+from app.utils.limiter import limiter
 from app.utils.logging_config import logger
 from app.utils.startup_events import convert_database_uri, initialize_vector_store
 
@@ -53,10 +56,22 @@ app = FastAPI(
     description="A simple API for managing support tickets",
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+
 # Include routers
-app.include_router(
-    admin_router.router, prefix="/api/v1/admin", tags=["Admin"]
-)
+app.include_router(admin_router.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(
     documents_router.router, prefix="/api/v1/documents", tags=["Documents"]
 )
@@ -65,4 +80,4 @@ app.include_router(chat_router.router, prefix="/api/v1/chat", tags=["Chat"])
 
 @app.get("/")
 def read_root() -> dict[str, str]:
-    return {"message": "Hello from Support Agent API!"}
+    return {"message": "Hello from the Support Agent API!"}
