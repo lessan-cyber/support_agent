@@ -17,69 +17,16 @@ from app.models.message import Message, SenderType
 from app.models.ticket import Ticket, TicketStatus
 from app.models.user import User
 from app.schemas.chat import AdminResolveRequest
+from app.schemas.document import DocumentListResponse
 from app.services.cache import semantic_cache
+from app.services.document import document_service
 from app.services.embeddings import get_embedding_model
 from app.utils.logging_config import logger
 
 router = APIRouter()
 
 
-@router.post("/tickets/{ticket_id}/email", response_model=dict)
-async def add_user_email_to_ticket(
-    ticket_id: uuid.UUID,
-    email_request: dict,
-    chat_session: tuple[AsyncSession, str, uuid.UUID] = Depends(get_chat_session),
-):
-    """
-    Add user email to an escalated ticket.
 
-    This endpoint is called by frontend (public chat widget) when a user
-    provides their email during escalation process. Uses same authentication
-    as chat streaming routes (anonymous customer JWT).
-
-    Args:
-        ticket_id: The ID of the ticket
-        email_request: Dictionary with 'email' key
-        chat_session: RLS-scoped session, tenant_id, and ticket_id from JWT
-
-    Returns:
-        Dictionary with success status
-    """
-    logger.info(f"Adding email to ticket {ticket_id}")
-
-    # Validate chat token and get tenant_id
-    db, tenant_id_val, ticket_id_val = chat_session
-
-    # Verify ticket_id in JWT matches path parameter
-    if ticket_id_val != ticket_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Ticket ID mismatch"
-        )
-
-    user_email = email_request.get("email")
-    if not user_email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Email is required"
-        )
-
-    stmt = update(Ticket).where(Ticket.id == ticket_id).values(user_email=user_email)
-    result = await db.execute(stmt)
-
-    if result.rowcount == 0:  # type: ignore
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Ticket not found or not accessible",
-        )
-
-    await db.commit()
-
-    logger.info(f"Added email {user_email} to ticket {ticket_id}")
-
-    return {
-        "success": True,
-        "message": "Email added successfully",
-        "ticket_id": str(ticket_id),
-    }
 
 
 @router.post("/tickets/{ticket_id}/resume", response_model=dict)
@@ -213,4 +160,47 @@ async def resume_ticket(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to resume ticket",
+        )
+
+
+@router.get("/documents", response_model=DocumentListResponse)
+async def get_tenant_documents(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_rls_session),
+):
+    """
+    Get all documents uploaded in the current tenant.
+
+    This endpoint allows admins to view all files uploaded within their tenant.
+    Implements proper RLS to prevent cross-tenant access.
+
+    Args:
+        current_user: Authenticated admin user (RLS context set by dependency)
+        db: RLS-scoped database session
+
+    Returns:
+        DocumentListResponse with list of documents and count
+
+    Raises:
+        HTTPException 500: If unexpected error occurs
+    """
+    logger.info(f"Admin {current_user.id} requesting all documents for tenant {current_user.tenant_id}")
+
+    try:
+        # Get all documents for the tenant using service layer
+        documents = await document_service.get_tenant_files(
+            tenant_id=current_user.tenant_id,
+            db=db,
+        )
+
+        return DocumentListResponse(
+            documents=documents,
+            count=len(documents),
+        )
+
+    except Exception as e:
+        logger.error(f"Unexpected error retrieving documents: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve documents",
         )
