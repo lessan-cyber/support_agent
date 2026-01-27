@@ -60,7 +60,7 @@ async def upload_document(
                 if total_size > settings.MAX_FILE_SIZE:
                     os.remove(temp_file_path)
                     raise HTTPException(
-                        status_code=413, detail="File size exceeds the 20MB limit."
+                        status_code=413, detail="File size exceeds the 40MB limit."
                     )
                 buffer.write(chunk)
 
