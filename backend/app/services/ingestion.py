@@ -17,7 +17,9 @@ from app.config.db import get_db_sync
 from app.config.supabase import supabase_admin_sync
 from app.models.document import Document
 from app.models.file import File, FileStatus
+from app.services.embeddings import get_embedding_model
 from app.services.storage import upload_to_storage_sync
+from app.settings import settings
 from app.utils.logging_config import setup_logging
 from app.worker import celery_app
 
@@ -41,7 +43,7 @@ def upload_file_and_trigger_ingestion(
     local_file_path: str, file_id: str, tenant_id: str, filename: str
 ):
     """
-    Celery task to upload a file to Supabase Storage and then trigger the ingestion task.
+    Celery task to upload a file to Supabase Storage and then trigger ingestion task.
     """
     logger.info(f"Starting upload for file_id: {file_id}")
     db_session_gen = get_db_sync(tenant_id=tenant_id)
@@ -79,7 +81,7 @@ def ingest_pdf(file_id: str, tenant_id: str, storage_path: str):
     create embeddings, and save them to the database.
 
     Args:
-        file_id: The ID of the file record in the database.
+        file_id: The ID of the file record in database.
         tenant_id: The ID of the tenant who owns the file.
         storage_path: The path of the file in Supabase Storage.
     """
@@ -89,44 +91,72 @@ def ingest_pdf(file_id: str, tenant_id: str, storage_path: str):
     try:
         storage_client = supabase_admin_sync()
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-            res = storage_client.storage.from_("knowledge-base").download(storage_path)
+            logger.info(f"Downloading file from storage: {storage_path}")
+            res = storage_client.storage.from_(settings.KNOWLEDGE_BASE_BUCKET).download(
+                storage_path
+            )
             tmp_file.write(res)
             tmp_file_path = tmp_file.name
-        doc = fitz.open(tmp_file_path)
-        extracted_texts = [page.get_text() for page in doc]
-        doc.close()
-        full_text = "\n".join(extracted_texts)
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=75)
-        chunks = text_splitter.split_text(full_text)
-        embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
-        embeddings = list(embedding_model.embed(chunks))
-        db.query(Document).filter(Document.file_id == file_id).delete(
-            synchronize_session=False
-        )
 
-        try:
-            tenant_uuid = uuid.UUID(tenant_id)
-            file_uuid = uuid.UUID(file_id)
-        except ValueError as e:
-            logger.error(
-                f"Invalid UUID format for tenant_id: {tenant_id} or file_id: {file_id}. Error: {e}"
-            )
-            raise
+            logger.info(f"Extracting text from PDF: {tmp_file_path}")
+            doc = fitz.open(tmp_file_path)
+            extracted_texts = [page.get_text() for page in doc]
+            doc.close()
 
-        documents_to_add = []
-        for i, chunk in enumerate(chunks):
-            new_doc = Document(
-                id=uuid7(),
-                tenant_id=tenant_uuid,
-                file_id=file_uuid,
-                content=chunk,
-                embedding=embeddings[i].tolist(),
+            logger.info(f"Extracted {len(extracted_texts)} pages")
+
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=512, chunk_overlap=75
             )
-            documents_to_add.append(new_doc)
-        db.add_all(documents_to_add)
-        db.query(File).filter(File.id == file_id).update({"status": FileStatus.INDEXED})
-        db.commit()
-        logger.info(f"Successfully indexed file_id: {file_id}")
+
+            chunks_with_pages = []
+            for page_idx, page_text in enumerate(extracted_texts):
+                page_chunks = text_splitter.split_text(page_text)
+                for chunk in page_chunks:
+                    chunks_with_pages.append((chunk, page_idx))
+
+            logger.info(
+                f"Created {len(chunks_with_pages)} chunks across {len(extracted_texts)} pages"
+            )
+
+            chunks = [c[0] for c in chunks_with_pages]
+            page_numbers = [c[1] for c in chunks_with_pages]
+
+            embedding_model = get_embedding_model()
+            embeddings = list(embedding_model.embed(chunks))
+
+            try:
+                tenant_uuid = uuid.UUID(tenant_id)
+                file_uuid = uuid.UUID(file_id)
+            except ValueError as e:
+                logger.error(
+                    f"Invalid UUID format for tenant_id: {tenant_id} or file_id: {file_id}. Error: {e}"
+                )
+                raise
+
+            documents_to_add = []
+            for i, chunk in enumerate(chunks):
+                new_doc = Document(
+                    id=uuid7(),
+                    tenant_id=tenant_uuid,
+                    file_id=file_uuid,
+                    content=chunk,
+                    embedding=embeddings[i].tolist(),
+                    page_number=page_numbers[i],
+                )
+                documents_to_add.append(new_doc)
+
+            with db.begin():
+                db.query(Document).filter(Document.file_id == file_id).delete(
+                    synchronize_session=False
+                )
+                db.add_all(documents_to_add)
+                db.query(File).filter(File.id == file_id).update(
+                    {"status": FileStatus.INDEXED}
+                )
+                db.commit()
+
+            logger.info(f"Successfully indexed file_id: {file_id}")
     except StorageException as e:
         _handle_ingestion_failure(db, file_id, e)
         raise
@@ -136,7 +166,6 @@ def ingest_pdf(file_id: str, tenant_id: str, storage_path: str):
     except ValueError as e:
         _handle_ingestion_failure(db, file_id, e)
         raise
-
     except RuntimeError as e:
         _handle_ingestion_failure(db, file_id, e)
         raise
