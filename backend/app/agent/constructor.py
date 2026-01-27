@@ -1,5 +1,5 @@
 import json
-from typing import Any, AsyncGenerator, Optional
+from typing import AsyncGenerator, Optional
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import Runnable
@@ -85,136 +85,120 @@ async def stream_response(
     message: str, tenant_id: str, ticket_id: str
 ) -> AsyncGenerator[str, None]:
     """
-    Streams of response from the RAG agent with persistent state and interrupt handling.
+    Streams response from the RAG agent with state persistence and interrupt handling.
 
     Args:
-        message (str): The user's message.
-        tenant_id (str): The ID of tenant.
-        ticket_id (str): The ID of ticket, used as as thread_id.
+        message: The user's message.
+        tenant_id: The ID of the tenant.
+        ticket_id: The ID of the ticket, used as the thread_id.
 
     Yields:
-        str: JSON-formatted strings representing events in the stream.
+        JSON-formatted strings representing events in the stream.
     """
-    # Get's runnable graph via dependency injection
     runnable = get_runnable()
-
-    # Configuration for the stream, specifying thread_id for persistence
     config = {"configurable": {"thread_id": ticket_id}}
 
     initial_state = {
         "messages": [HumanMessage(content=message)],
         "tenant_id": tenant_id,
         "ticket_id": ticket_id,
-        "documents": [],
-        "is_cache_hit": False,
-        "rephrased_question": None,
-        "query_embedding": None,
-        "confidence_score": None,
-        "escalated": False,
-        "escalation_payload": None,
     }
 
-    # Store generated response temporarily until confidence is confirmed
-    pending_response = None
+    pending_response = ""
+    escalation_info = None
 
     try:
         async for event in runnable.astream_events(
             initial_state, config=config, version="v2"
         ):
             kind = event["event"]
+            name = event.get("name")
 
             if kind == "on_chain_start":
-                # Only send retrieving status at the start of the graph
-
-                if event["name"] == "LangGraph":
+                if name == "check_cache":
                     yield json.dumps(
-                        {"type": "status", "content": "Retrieving documents..."}
+                        {
+                            "type": "status",
+                            "content": "Checking for similar past answers...",
+                        }
+                    )
+                elif name == "retrieve":
+                    yield json.dumps(
+                        {"type": "status", "content": "Searching knowledge base..."}
+                    )
+                elif name == "generate":
+                    yield json.dumps(
+                        {"type": "status", "content": "Generating response..."}
+                    )
+                elif name == "grade_confidence":
+                    yield json.dumps(
+                        {"type": "status", "content": "Verifying answer quality..."}
                     )
 
-            # Capture generated response but DON'T stream it yet
-            if kind == "on_chain_end" and event["name"] == "generate":
+            elif kind == "on_chain_end":
                 output = event["data"].get("output")
+                if not output:
+                    continue
 
-                if output:
+                if name == "check_cache" and output.get("is_cache_hit"):
                     messages = output.get("messages", [])
-
-                    if messages:
-                        # Store the last AI message for streaming after confidence check
-                        for msg in messages:
-                            if isinstance(msg, AIMessage) and msg.content:
-                                pending_response = msg.content
-                                break
-
-            # Stream cached response immediately (cache hits are trusted)
-            if kind == "on_chain_end" and event["name"] == "check_cache":
-                output = event["data"].get("output")
-
-                if output and output.get("is_cache_hit"):
-                    messages = output.get("messages", [])
-
                     if messages:
                         cached_content = messages[0].content
+                        for i in range(0, len(cached_content), 3):
+                            yield json.dumps(
+                                {"type": "token", "content": cached_content[i : i + 3]}
+                            )
 
-                        yield json.dumps({"type": "token", "content": cached_content})
+                        return  # End stream after cache hit
 
-            # Stream the AI response ONLY after confidence is confirmed good
-            if kind == "on_chain_end" and event["name"] == "cache_high_confidence":
-                if pending_response:
-                    yield json.dumps({"type": "token", "content": pending_response})
-                    pending_response = None
+                elif name == "generate":
+                    messages = output.get("messages", [])
+                    if messages and isinstance(messages[0], AIMessage):
+                        pending_response = messages[0].content
 
-            # Handle Escalation: send generic message, NOT the AI response
-            if kind == "on_chain_end" and event["name"] == "escalate":
-                output = event["data"].get("output")
+                elif name == "grade_confidence":
+                    confidence = output.get("confidence_score", 0.0)
+                    if confidence >= 0.7 and pending_response:
+                        for i in range(0, len(pending_response), 3):
+                            yield json.dumps(
+                                {
+                                    "type": "token",
+                                    "content": pending_response[i : i + 3],
+                                }
+                            )
 
-                if output and output.get("escalated"):
-                    # Send escalation event with ticket ID
-                    yield json.dumps(
-                        {
+                    elif confidence < 0.7:
+                        escalation_info = {
                             "type": "escalation",
                             "ticket_id": ticket_id,
-                            "content": "We cannot treat your request now. Your request is being processed and we will get back to you shortly.",
+                            "content": "I am not confident in my answer. Escalating to a human agent.",
                         }
-                    )
+                        # Don't yield yet, wait for interrupt to confirm
 
-                    # Don't stream the pending AI response
-                    pending_response = None
-
-            # Handle interrupts - graph was paused waiting for human input
-            if kind == "on_chain_end" and event["name"] == "__interrupt__":
-                # Graph was interrupted - extract payload
-                interrupt_data = event["data"].get("output", {}).get("__interrupt__")
-                if interrupt_data and len(interrupt_data) > 0:
-                    escalation_data = interrupt_data[0]
-                    logger.info(f"Graph interrupted: {escalation_data}")
-
-                    # Send escalation event to frontend with full payload
-                    yield json.dumps(
-                        {
-                            "type": "escalation",
-                            "ticket_id": escalation_data.get("ticket_id"),
-                            "user_question": escalation_data.get("user_question"),
-                            "bridge_message": escalation_data.get("bridge_message"),
-                            "content": "We cannot treat your request now. Your request is being processed and we will get back to you shortly.",
-                        }
-                    )
-
-                    # Don't stream the pending AI response
-                    pending_response = None
-
-                    # Send end event since graph is paused
-                    yield json.dumps({"type": "end", "content": ""})
-                    return  # Stop streaming
+    except GraphInterrupt:
+        logger.info(f"Graph interrupted for ticket {ticket_id}, sending escalation.")
+        if escalation_info:
+            yield json.dumps(escalation_info)
+        else:
+            # Fallback escalation message
+            yield json.dumps(
+                {
+                    "type": "escalation",
+                    "ticket_id": ticket_id,
+                    "content": "I need to check this with an expert. Your request is being processed.",
+                }
+            )
 
     except Exception as e:
-        # Log the error and yield an error event
-        logger.error(f"Agent streaming error: {e}", exc_info=True)
+        logger.error(
+            f"Agent streaming error for ticket {ticket_id}: {e}", exc_info=True
+        )
         yield json.dumps(
             {
                 "type": "error",
-                "content": "An error occurred while processing your request",
+                "content": "An error occurred while processing your request.",
             }
         )
+
     finally:
-        # Signal the end of the stream
         yield json.dumps({"type": "end", "content": ""})
