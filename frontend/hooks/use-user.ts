@@ -9,9 +9,13 @@ interface Profile {
   name: string
   email: string
   avatar_url?: string
+  bio?: string
+  preferences?: Record<string, any>
   created_at: string
   updated_at: string
 }
+
+const supabase = createClient()
 
 export function useUser() {
   const [user, setUser] = useState<User | null>(null)
@@ -19,41 +23,24 @@ export function useUser() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const supabase = createClient()
 
     const fetchProfile = async (userId: string) => {
-      console.log('🔍 fetchProfile called for userId:', userId)
-      
-      // Timeout de 5 secondes pour déboguer
-      // const timeoutPromise = new Promise((_, reject) => 
-      //   setTimeout(() => reject(new Error('Timeout after 5s')), 5000)
-      // )
-      
+      console.log("🚀 Tentative de récupération pour l'ID:", userId);
       try {
-        const fetchPromise = supabase
+        const { data, error } = await supabase
           .from('profiles')
-          .select('*')
+          .select('*', { count: 'exact' })
           .eq('id', userId)
           .single()
-        
-        const { data: profileData, error } = await Promise.race([
-          fetchPromise,
-          // timeoutPromise
-        ]) as any
-
-        console.log('📦 Raw response:', { profileData, error })
-
         if (error) {
-          console.error('❌ Error fetching profile:', error)
+          console.error('Error fetching profile:', error)
           setProfile(null)
           return null
         }
-        
-        console.log('✅ Profile fetched successfully:', profileData)
-        setProfile(profileData)
-        return profileData
+        setProfile(data)
+        return data
       } catch (error) {
-        console.error('💥 Exception fetching profile:', error)
+        console.error('Exception fetching profile:', error)
         setProfile(null)
         return null
       }
@@ -64,7 +51,6 @@ export function useUser() {
         setLoading(true)
         const { data: { session } } = await supabase.auth.getSession()
         
-        console.log('Initial session:', session?.user?.id)
         setUser(session?.user ?? null)
 
         if (session?.user) {
@@ -85,7 +71,6 @@ export function useUser() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id)
         setUser(session?.user ?? null)
 
         if (session?.user) {
@@ -101,7 +86,6 @@ export function useUser() {
 
   return { user, profile, loading }
 }
-
 export function useUsers() {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)

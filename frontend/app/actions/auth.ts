@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { loginSchema, signupSchema } from '@/lib/validations/auth'
 import type { LoginInput, SignupInput } from '@/lib/validations/auth'
+import { cookies } from 'next/headers'
 
 export async function login(data: LoginInput) {
   // Validation côté serveur
@@ -18,7 +19,7 @@ export async function login(data: LoginInput) {
 
   const supabase = await createClient()
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data: authData, error } = await supabase.auth.signInWithPassword({
     email: validatedFields.data.email,
     password: validatedFields.data.password,
   })
@@ -27,6 +28,18 @@ export async function login(data: LoginInput) {
     return {
       error: error.message,
     }
+  }
+
+  // Stocker le token dans un cookie HTTP-only
+  if (authData.session?.access_token) {
+    const cookieStore = await cookies()
+    cookieStore.set('auth-token', authData.session.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 jours
+      path: '/',
+    })
   }
 
   revalidatePath('/', 'layout')
@@ -78,6 +91,18 @@ export async function signup(data: SignupInput) {
     }
   }
 
+  // 3. Stocker le token dans un cookie HTTP-only si disponible
+  if (authData.session?.access_token) {
+    const cookieStore = await cookies()
+    cookieStore.set('auth-token', authData.session.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 jours
+      path: '/',
+    })
+  }
+
   revalidatePath('/', 'layout')
   redirect('/dashboard')
 }
@@ -91,6 +116,10 @@ export async function signOut() {
     console.error('Erreur de déconnexion:', error)
     return { error: error.message }
   }
+
+  // Supprimer le cookie HTTP-only
+  const cookieStore = await cookies()
+  cookieStore.delete('auth-token')
 
   revalidatePath('/', 'layout')
   redirect('/login')
@@ -128,4 +157,10 @@ export async function getUser() {
   }
 
   return user
+}
+
+export async function getAuthToken() {
+  const cookieStore = await cookies()
+  const token = cookieStore.get('auth-token')
+  return token?.value || null
 }

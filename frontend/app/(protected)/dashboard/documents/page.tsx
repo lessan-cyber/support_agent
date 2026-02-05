@@ -28,6 +28,7 @@ import { DocumentsTable } from "@/components/dashboard/documents/documents-table
 import { DocumentsEmptyState } from "@/components/dashboard/documents/documents-empty-state"
 import { PdfPreviewModal } from "@/components/dashboard/documents/pdf-preview-modal"
 import { toast } from "sonner"
+import { getDocuments, deleteDocument, updateDocument } from "@/app/actions/upload_document"
 import {
   Pagination,
   PaginationContent,
@@ -39,6 +40,7 @@ import {
 } from "@/components/ui/pagination"
 
 interface Document {
+  createElement(arg0: string): unknown
   id: string
   filename: string
   size: number
@@ -67,30 +69,20 @@ export default function DocumentsPage() {
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
 
-  const limit = 12
+const limit = 12          
 
   // Fetch documents
   const fetchDocuments = async () => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: limit.toString(),
+      const data = await getDocuments({
+        page: currentPage,
+        limit,
         sort: sortBy,
         date_filter: dateFilter,
         search: searchQuery,
       })
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/v1/documents?${params}`,
-        {
-          credentials: "include",
-        }
-      )
-
-      if (!response.ok) throw new Error("Failed to fetch documents")
-
-      const data: DocumentsResponse = await response.json()
+      
       setDocuments(data.documents)
       setTotalDocuments(data.total)
       setTotalPages(data.totalPages)
@@ -128,7 +120,7 @@ export default function DocumentsPage() {
   const handleDelete = async (documentId: string) => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/v1/documents/${documentId}`,
+        `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/v1/admin/documents/${documentId}`,
         {
           method: "DELETE",
           credentials: "include",
@@ -150,7 +142,7 @@ export default function DocumentsPage() {
   const handleRename = async (documentId: string, newName: string) => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/v1/documents/${documentId}`,
+        `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/v1/admin/documents/${documentId}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
