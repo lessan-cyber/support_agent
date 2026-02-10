@@ -207,3 +207,11 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 temp_files/
+
+
+# Node modules and build output
+/frontend/node_modules
+/frontend/.pnp
+/frontend/next-themes
+/frontend/lucide-react
+/frontend/.pnp.*
