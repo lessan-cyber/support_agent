@@ -53,21 +53,27 @@ class DocumentService:
                     settings.KNOWLEDGE_BASE_BUCKET
                 ).create_signed_url(
                     file.storage_path,
-                    86400  # 1 day in seconds (24 * 60 * 60)
+                    86400,  # 1 day in seconds (24 * 60 * 60)
                 )
-                
+
                 # Extract the actual URL string from the Supabase response
                 # Supabase returns an object with 'signedURL' property
                 if isinstance(signed_url_data, dict):
-                    signed_url = signed_url_data.get('signedURL') or signed_url_data.get('signed_url')
+                    signed_url = signed_url_data.get(
+                        "signedURL"
+                    ) or signed_url_data.get("signed_url")
                 else:
                     # Fallback for different response formats
                     signed_url = str(signed_url_data)
-                
+
                 # Debug: log the actual response format
-                logger.debug(f"Supabase signed URL response type: {type(signed_url_data)}")
+                logger.debug(
+                    f"Supabase signed URL response type: {type(signed_url_data)}"
+                )
                 if isinstance(signed_url_data, dict):
-                    logger.debug(f"Supabase response keys: {list(signed_url_data.keys())}")
+                    logger.debug(
+                        f"Supabase response keys: {list(signed_url_data.keys())}"
+                    )
 
                 # Get file size from Supabase (fallback to 0 if not available)
                 file_size = 0
@@ -75,7 +81,7 @@ class DocumentService:
                     file_info = await supabase_client.storage.from_(
                         settings.KNOWLEDGE_BASE_BUCKET
                     ).get_file_info(file.storage_path)
-                    file_size = file_info.size if hasattr(file_info, 'size') else 0
+                    file_size = file_info.size if hasattr(file_info, "size") else 0
                 except Exception:
                     logger.debug(f"Could not get file size for {file.storage_path}")
 
