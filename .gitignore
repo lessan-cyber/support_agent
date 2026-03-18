@@ -207,3 +207,8 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 temp_files/
+DOCKER.md
+ESCALATION_WORKFLOW.md
+MILESTONE_5_SUMMARY.md
+SELF_IMPROVING_LOOP.md
+human_in_the_loop.md
