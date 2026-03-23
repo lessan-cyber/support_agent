@@ -49,14 +49,23 @@ async def upload_document(
     await db.commit()
     await db.refresh(db_file)
 
-    # Read file content directly to pass to Celery task
+    # Read file content in chunks to avoid buffering oversize uploads in memory
     # This avoids filesystem issues between Docker containers
     try:
-        file_content = await file.read()
-        if len(file_content) > settings.MAX_FILE_SIZE:
-            raise HTTPException(
-                status_code=413, detail="File size exceeds the 40MB limit."
-            )
+        file_content = bytearray()
+        chunk_size = 4096  # 4KB chunks
+        total_size = 0
+        
+        while chunk := await file.read(chunk_size):
+            total_size += len(chunk)
+            if total_size > settings.MAX_FILE_SIZE:
+                raise HTTPException(
+                    status_code=413, detail="File size exceeds the 40MB limit."
+                )
+            file_content.extend(chunk)
+        
+        # Convert to bytes for Celery task
+        file_content = bytes(file_content)
     except Exception as e:
         logger.error(f"Failed to read uploaded file: {e}")
         db_file.status = FileStatus.FAILED
@@ -68,12 +77,22 @@ async def upload_document(
             status_code=500, detail="Failed to read uploaded file."
         ) from e
 
-    task = upload_file_and_trigger_ingestion.delay(
-        file_content=file_content,
-        file_id=str(db_file.id),
-        tenant_id=str(current_user.tenant_id),
-        filename=file.filename,
-    )
-    response = db_file.__dict__
-    response["task_id"] = task.id
-    return FileUploadResponse.model_validate(response)
+    try:
+        # Upload file to storage first, then trigger processing
+        task = upload_file_and_trigger_ingestion.delay(
+            file_content=file_content,
+            file_id=str(db_file.id),
+            tenant_id=str(current_user.tenant_id),
+            filename=file.filename,
+        )
+        response = db_file.__dict__
+        response["task_id"] = task.id
+        return FileUploadResponse.model_validate(response)
+    except Exception as e:
+        logger.error(f"Failed to trigger ingestion task: {e}")
+        db_file.status = FileStatus.FAILED
+        await db.commit()
+        await db.refresh(db_file)
+        raise HTTPException(
+            status_code=500, detail="Failed to trigger document processing."
+        ) from e

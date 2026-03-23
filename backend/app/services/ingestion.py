@@ -55,7 +55,8 @@ def upload_file_and_trigger_ingestion(
 
         sanitized_filename = re.sub(r"[^\w\-. ]", "_", filename)
         sanitized_filename = sanitized_filename.replace(" ", "_")
-        storage_path = f"{tenant_id}/{sanitized_filename}"
+        # Use file_id in storage path to avoid collisions
+        storage_path = f"{tenant_id}/{file_id}/{sanitized_filename}"
         # Upload directly from memory instead of reading from filesystem
         upload_to_storage_sync(file_content, storage_path)
         logger.info(f"Successfully uploaded file_id: {file_id} to {storage_path}")
