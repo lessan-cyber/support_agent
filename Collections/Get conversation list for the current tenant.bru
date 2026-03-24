@@ -1,0 +1,16 @@
+meta {
+  name: Get conversation list for the current tenant 
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{backend_base_url}}/api/v1/admin/conversations
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
