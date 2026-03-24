@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.agent import constructor as agent_constructor
 from app.api.v1 import admin as admin_router
@@ -61,10 +62,41 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Add Gzip compression middleware for better performance
-# Compresses responses larger than 1KB (configurable)
 
-app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
+class ConditionalGZipMiddleware:
+    def __init__(
+        self,
+        app: ASGIApp,
+        minimum_size: int = 1000,
+        compresslevel: int = 5,
+    ) -> None:
+        self.app = app
+        self.minimum_size = minimum_size
+        self.compresslevel = compresslevel
+        self.gzip_middleware = GZipMiddleware(
+            app=app, minimum_size=minimum_size, compresslevel=compresslevel
+        )
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        # Check if this is a request that should not be compressed
+        should_skip_compression = False
+
+        # Skip compression for SSE endpoints
+        if scope["path"] == "/api/v1/chat/stream":
+            should_skip_compression = True
+
+        # Skip compression if response headers indicate SSE
+        # We need to wrap the send function to check headers
+        if not should_skip_compression:
+            # Use the gzip middleware for non-SSE responses
+            await self.gzip_middleware(scope, receive, send)
+        else:
+            # Bypass compression for SSE responses
+            await self.app(scope, receive, send)
+
+
+# Add conditional Gzip compression middleware
+app.add_middleware(ConditionalGZipMiddleware, minimum_size=1000, compresslevel=5)
 
 
 @app.exception_handler(HTTPException)
