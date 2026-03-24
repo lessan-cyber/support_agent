@@ -1,0 +1,16 @@
+meta {
+  name: Get all messages for a specific conversation
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{backend_base_url}}/api/v1/admin/conversations/d43bea57-e1bd-4a58-a9d1-320120adfd89/messages/
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

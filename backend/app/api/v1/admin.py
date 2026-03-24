@@ -5,12 +5,11 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from langgraph.types import Command
-from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.constructor import get_runnable
 from app.api.deps import (
-    get_chat_session,
     get_current_user,
     get_rls_session,
 )
@@ -19,8 +18,11 @@ from app.models.ticket import Ticket, TicketStatus
 from app.models.user import User
 from app.schemas.chat import (
     AdminResolveRequest,
-    ConversationHistoryQueryParams,
-    ConversationHistoryResponse,
+    ChatMessageItem,
+    ConversationListItem,
+    ConversationListQueryParams,
+    ConversationListResponse,
+    ConversationMessagesResponse,
 )
 from app.schemas.document import DocumentListResponse
 from app.services.cache import semantic_cache
@@ -210,18 +212,17 @@ async def get_tenant_documents(
         )
 
 
-@router.get("/conversations", response_model=ConversationHistoryResponse)
-async def get_conversation_history(
+@router.get("/conversations", response_model=ConversationListResponse)
+async def get_conversation_list(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_rls_session),
-    params: ConversationHistoryQueryParams = Depends(),
+    params: ConversationListQueryParams = Depends(),
 ):
     """
-    Get conversation history for the current tenant.
+    Get conversation list for the current tenant (sidebar view).
 
-    This endpoint allows admins to view all conversations within their tenant.
-    Supports filtering by client email, ticket status, and date ranges.
-    Implements proper RLS to prevent cross-tenant access.
+    Returns ticket metadata with latest message preview.
+    Uses window function to avoid N+1 query problem.
 
     Args:
         current_user: Authenticated admin user (RLS context set by dependency)
@@ -229,105 +230,195 @@ async def get_conversation_history(
         params: Query parameters (client_email, status, date ranges, pagination)
 
     Returns:
-        ConversationHistoryResponse with conversation history items
-
-    Raises:
-        HTTPException 400: If invalid parameters provided
-        HTTPException 500: If unexpected error occurs
+        ConversationListResponse with conversation list items
     """
     logger.info(
-        f"Admin {current_user.id} requesting conversation history for tenant {current_user.tenant_id}"
+        f"Admin {current_user.id} requesting conversation list for tenant {current_user.tenant_id}"
     )
 
     try:
-        # Extract parameters from validated Pydantic model
-        client_email = params.client_email
-        status = params.status
-        start_date = params.start_date
-        end_date = params.end_date
-        limit = params.limit
-        offset = params.offset
+        # Subquery: rank messages per ticket by recency
+        latest_message_subquery = select(
+            Message.ticket_id,
+            Message.content,
+            Message.sender_type,
+            Message.created_at,
+            func.row_number()
+            .over(
+                partition_by=Message.ticket_id,
+                order_by=Message.created_at.desc(),
+            )
+            .label("rn"),
+        ).subquery("latest_messages")
 
-        # Convert date strings to date objects if provided
-        start_date_obj = (
-            datetime.fromisoformat(start_date).date() if start_date else None
-        )
-        end_date_obj = datetime.fromisoformat(end_date).date() if end_date else None
-
-        # Build base query for tickets with message counts
-        ticket_query = (
+        # Main query: tickets with latest message and count in single query
+        query = (
             select(
                 Ticket.id,
                 Ticket.status,
                 Ticket.user_email,
                 Ticket.created_at,
                 func.count(Message.id).label("message_count"),
-                func.max(Message.created_at).label("last_message_at"),
-                func.max(Message.content).label("last_message_preview"),
-                func.max(Message.sender_type).label("last_message_sender"),
+                latest_message_subquery.c.content.label("last_message_content"),
+                latest_message_subquery.c.sender_type.label("last_message_sender"),
+                latest_message_subquery.c.created_at.label("last_message_at"),
             )
-            .join(Message, Message.ticket_id == Ticket.id, isouter=True)
-            .where(Ticket.tenant_id == current_user.tenant_id)
-            .group_by(Ticket.id, Ticket.status, Ticket.user_email, Ticket.created_at)
+            .outerjoin(Message, Message.ticket_id == Ticket.id)
+            .outerjoin(
+                latest_message_subquery,
+                and_(
+                    Ticket.id == latest_message_subquery.c.ticket_id,
+                    latest_message_subquery.c.rn == 1,
+                ),
+            )
+            .group_by(
+                Ticket.id,
+                Ticket.status,
+                Ticket.user_email,
+                Ticket.created_at,
+                latest_message_subquery.c.content,
+                latest_message_subquery.c.sender_type,
+                latest_message_subquery.c.created_at,
+            )
         )
 
         # Apply filters
         filters = []
-        if client_email:
-            filters.append(Ticket.user_email == client_email)
-        if status:
-            filters.append(Ticket.status == status)
-        if start_date_obj:
+        if params.client_email:
+            filters.append(Ticket.user_email == params.client_email)
+        if params.status:
+            filters.append(Ticket.status == params.status)
+        if params.start_date:
+            start_date_obj = datetime.fromisoformat(params.start_date).date()
             filters.append(Ticket.created_at >= start_date_obj)
-        if end_date_obj:
+        if params.end_date:
+            end_date_obj = datetime.fromisoformat(params.end_date).date()
             filters.append(Ticket.created_at <= end_date_obj)
 
         if filters:
-            ticket_query = ticket_query.where(and_(*filters))
+            query = query.where(and_(*filters))
 
-        # Get total count for pagination
-        count_query = select(func.count()).select_from(ticket_query.subquery())
+        # Get total count before pagination
+        count_subquery = query.subquery()
+        count_query = select(func.count()).select_from(count_subquery)
         count_result = await db.execute(count_query)
-        total_count = count_result.scalar()
+        total_count = count_result.scalar() or 0
 
-        # Apply pagination
-        ticket_query = ticket_query.order_by(Ticket.created_at.desc())
-        ticket_query = ticket_query.limit(limit).offset(offset)
+        # Apply ordering and pagination
+        query = query.order_by(Ticket.created_at.desc())
+        query = query.limit(params.limit).offset(params.offset)
 
-        # Execute query
-        result = await db.execute(ticket_query)
-        conversations = result.all()
+        # Execute
+        result = await db.execute(query)
+        rows = result.all()
 
-        # Format response
-        conversation_items = []
-        for conv in conversations:
-            conversation_items.append(
-                {
-                    "ticket_id": conv[0],
-                    "status": conv[1],
-                    "user_email": conv[2],
-                    "created_at": conv[3].isoformat(),
-                    "last_message_at": conv[5].isoformat() if conv[5] else None,
-                    "message_count": conv[4],
-                    "last_message_preview": conv[6]
-                    if conv[6] and len(conv[6]) > 50
-                    else conv[6],
-                    "last_message_sender": conv[7],
-                }
+        conversations = [
+            ConversationListItem(
+                ticket_id=row.id,
+                status=row.status,
+                user_email=row.user_email,
+                created_at=row.created_at.isoformat(),
+                message_count=row.message_count,
+                last_message_at=row.last_message_at.isoformat()
+                if row.last_message_at
+                else None,
+                last_message_content=row.last_message_content,
+                last_message_sender=row.last_message_sender,
             )
+            for row in rows
+        ]
 
-        return ConversationHistoryResponse(
-            conversations=conversation_items,
+        return ConversationListResponse(
+            conversations=conversations,
             total_count=total_count,
-            limit=limit,
-            offset=offset,
+            limit=params.limit,
+            offset=params.offset,
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to retrieve conversation history: {e}", exc_info=True)
+        logger.error(f"Failed to retrieve conversation list: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve conversation history",
+            detail="Failed to retrieve conversation list",
+        )
+
+
+@router.get(
+    "/conversations/{ticket_id}/messages",
+    response_model=ConversationMessagesResponse,
+)
+async def get_conversation_messages(
+    ticket_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_rls_session),
+):
+    """
+    Get all messages for a specific conversation (chat view).
+
+    Returns messages in chronological order for rendering in a chat UI.
+    RLS ensures tenant isolation - only messages from the current tenant
+    are accessible.
+
+    Args:
+        ticket_id: The ticket/conversation ID
+        current_user: Authenticated admin user (RLS context set by dependency)
+        db: RLS-scoped database session
+
+    Returns:
+        ConversationMessagesResponse with ticket info and ordered messages
+
+    Raises:
+        HTTPException 404: If ticket not found
+        HTTPException 500: If unexpected error occurs
+    """
+    logger.info(f"Admin {current_user.id} requesting messages for ticket {ticket_id}")
+
+    try:
+        # Verify ticket exists (RLS ensures tenant isolation)
+        ticket_result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
+        ticket = ticket_result.scalar_one_or_none()
+
+        if not ticket:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Ticket not found",
+            )
+
+        # Get all messages ordered chronologically for chat display
+        messages_query = (
+            select(Message)
+            .where(Message.ticket_id == ticket_id)
+            .order_by(Message.created_at.asc())
+        )
+
+        messages_result = await db.execute(messages_query)
+        messages = messages_result.scalars().all()
+
+        return ConversationMessagesResponse(
+            ticket_id=ticket.id,
+            status=ticket.status,
+            user_email=ticket.user_email,
+            messages=[
+                ChatMessageItem(
+                    id=msg.id,
+                    sender_type=msg.sender_type,
+                    content=msg.content,
+                    created_at=msg.created_at.isoformat(),
+                )
+                for msg in messages
+            ],
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Failed to retrieve messages for ticket {ticket_id}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve messages",
         )
