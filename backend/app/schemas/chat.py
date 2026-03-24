@@ -1,7 +1,6 @@
 import uuid
 
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional
 
 from app.models.message import SenderType
 from app.models.ticket import TicketStatus
@@ -64,24 +63,21 @@ class AdminResolveResponse(BaseModel):
     ticket_id: uuid.UUID
 
 
-class ConversationHistoryItem(BaseModel):
-    """Conversation history item with metadata and message preview."""
+class ConversationListItem(BaseModel):
+    """Conversation list item with preview metadata for sidebar view."""
 
     ticket_id: uuid.UUID
-    status: str
+    status: TicketStatus
     user_email: str | None
     created_at: str
-    last_message_at: str | None
     message_count: int
-    last_message_preview: str | None
+    last_message_at: str | None
+    last_message_content: str | None
     last_message_sender: SenderType | None
 
-    class Config:
-        from_attributes = True
 
-
-class ConversationHistoryQueryParams(BaseModel):
-    """Query parameters for conversation history endpoint."""
+class ConversationListQueryParams(BaseModel):
+    """Query parameters for conversation list endpoint."""
 
     client_email: str | None = Field(
         None,
@@ -114,14 +110,42 @@ class ConversationHistoryQueryParams(BaseModel):
         ge=0,
     )
 
-    class Config:
-        from_attributes = True
+    @field_validator("status")
+    def validate_status(cls, value: str | None) -> str | None:
+        """Validate that status is either None or a valid TicketStatus value."""
+        if value is None:
+            return None
+
+        valid_statuses = {s.value for s in TicketStatus}
+        if value not in valid_statuses:
+            raise ValueError(
+                f"Invalid status '{value}'. Must be one of: {', '.join(valid_statuses)}"
+            )
+        return value
 
 
-class ConversationHistoryResponse(BaseModel):
-    """Response model for conversation history."""
+class ConversationListResponse(BaseModel):
+    """Response model for conversation list."""
 
-    conversations: list[ConversationHistoryItem]
+    conversations: list[ConversationListItem]
     total_count: int
     limit: int
     offset: int
+
+
+class ChatMessageItem(BaseModel):
+    """Individual message in a conversation for chat view."""
+
+    id: uuid.UUID
+    sender_type: SenderType
+    content: str
+    created_at: str
+
+
+class ConversationMessagesResponse(BaseModel):
+    """Response model for full conversation messages (chat view)."""
+
+    ticket_id: uuid.UUID
+    status: TicketStatus
+    user_email: str | None
+    messages: list[ChatMessageItem]
