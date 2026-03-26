@@ -74,6 +74,36 @@ export async function getDocuments(params: {
   return response.json()
 }
 
+// get all documents without pagination (for export)
+export async function getAllDocuments() {
+  const supabase = await createClient()
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (!session) {
+    throw new Error('Not authenticated')
+  }
+
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/v1/admin/documents`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  )
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch documents')
+  }
+
+  return response.json()
+}
+
 export async function deleteDocument(documentId: string) {
   const supabase = await createClient()
 

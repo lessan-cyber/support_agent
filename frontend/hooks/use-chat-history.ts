@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { Conversation, Message, ChatHistoryResponse, ConversationMessagesResponse } from '@/lib/types/chat'
+import { getAuthToken} from "@/app/actions/auth"
 
 const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://localhost:8000'
 
@@ -11,6 +12,17 @@ export function useChatHistory() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [token, setToken] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchToken = async () => {
+      const authToken = await getAuthToken()
+      setToken(authToken)
+    }
+
+    fetchToken()
+  }, [])
+  console.log('Auth token:', token)
 
   const fetchConversations = useCallback(async (filter?: ConversationStatus) => {
     try {
@@ -23,14 +35,21 @@ export function useChatHistory() {
       }
 
       const response = await fetch(
-        `${BACKEND_BASE_URL}/api/v1/chat/history?${params.toString()}`,
+        `${BACKEND_BASE_URL}/api/v1/admin/conversations`,
         {
-          headers: {
-            'Content-Type': 'application/json',
-            // Ajoutez votre token d'authentification si nécessaire
-            // 'Authorization': `Bearer ${token}`,
-          },
-        }
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    }
+        // {
+        //   headers: {
+        //     'Content-Type': 'application/json',
+        //     // Ajoutez votre token d'authentification si nécessaire
+        //     'Authorization': `Bearer ${token}`,
+        //   },
+        // }
       )
 
       if (!response.ok) {

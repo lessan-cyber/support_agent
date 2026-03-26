@@ -40,6 +40,7 @@ export async function login(data: LoginInput) {
       maxAge: 60 * 60 * 24 * 7, // 7 jours
       path: '/',
     })
+    console.log('Token stored in cookie')
   }
 
   revalidatePath('/', 'layout')
@@ -163,4 +164,36 @@ export async function getAuthToken() {
   const cookieStore = await cookies()
   const token = cookieStore.get('auth-token')
   return token?.value || null
+}
+
+export async function getUserProfile() {
+  const supabase = await createClient()
+  
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+  console.log('User data:', user)
+
+  if (userError || !user) {
+    return null
+  }
+
+  // Récupérer le profil depuis la table profiles
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
+
+  console.log('Profile data:', profile)
+  if (profileError) {
+    console.error('Error fetching profile:', profileError)
+    return null
+  }
+
+  return {
+    user,
+    profile,
+  }
 }

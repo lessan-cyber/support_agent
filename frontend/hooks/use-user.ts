@@ -1,9 +1,12 @@
 'use client'
 
-import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
+import { getUserProfile } from '@/app/actions/auth'
 
+/**
+ * Represents a user profile with personal and account information.
+ */
 interface Profile {
   id: string
   name: string
@@ -15,7 +18,11 @@ interface Profile {
   updated_at: string
 }
 
-const supabase = createClient()
+/**
+ * Custom hook to get the current authenticated user, their profile, and loading state.
+ * Uses server action to fetch profile securely.
+ * @returns {{ user: User | null, profile: Profile | null, loading: boolean }}
+ */
 
 export function useUser() {
   const [user, setUser] = useState<User | null>(null)
@@ -23,39 +30,16 @@ export function useUser() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-
-    const fetchProfile = async (userId: string) => {
-      console.log("🚀 Tentative de récupération pour l'ID:", userId);
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*', { count: 'exact' })
-          .eq('id', userId)
-          .single()
-        if (error) {
-          console.error('Error fetching profile:', error)
-          setProfile(null)
-          return null
-        }
-        setProfile(data)
-        return data
-      } catch (error) {
-        console.error('Exception fetching profile:', error)
-        setProfile(null)
-        return null
-      }
-    }
-
     const initUser = async () => {
       try {
         setLoading(true)
-        const { data: { session } } = await supabase.auth.getSession()
+        const result = await getUserProfile()
         
-        setUser(session?.user ?? null)
-
-        if (session?.user) {
-          await fetchProfile(session.user.id)
+        if (result) {
+          setUser(result.user)
+          setProfile(result.profile)
         } else {
+          setUser(null)
           setProfile(null)
         }
       } catch (error) {
@@ -68,92 +52,6 @@ export function useUser() {
     }
 
     initUser()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null)
-
-        if (session?.user) {
-          await fetchProfile(session.user.id)
-        } else {
-          setProfile(null)
-        }
-      }
-    )
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  return { user, profile, loading }
-}
-export function useUsers() {
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const supabase = createClient()
-
-    const loadUser = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        setUser(session?.user ?? null)
-
-        if (session?.user) {
-          const { data: profileData, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-          
-          if (error) {
-            console.error('Error fetching profile:', error)
-            setProfile(null)
-          } else {
-            setProfile(profileData)
-          }
-        } else {
-          setProfile(null)
-        }
-      } catch (error) {
-        console.error('Error loading user:', error)
-        setProfile(null)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadUser()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setUser(session?.user ?? null)
-
-        if (session?.user) {
-          try {
-            const { data: profileData, error } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single()
-
-            if (error) {
-              console.error('Error fetching profile:', error)
-              setProfile(null)
-            } else {
-              setProfile(profileData)
-            }
-          } catch (error) {
-            console.error('Error in auth state change:', error)
-            setProfile(null)
-          }
-        } else {
-          setProfile(null)
-        }
-      }
-    )
-
-    return () => subscription.unsubscribe()
   }, [])
 
   return { user, profile, loading }

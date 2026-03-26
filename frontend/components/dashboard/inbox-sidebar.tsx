@@ -21,14 +21,15 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { Clock, UserCheck, Inbox } from "lucide-react"
+import { useChatHistory } from "@/hooks/use-chat-history"
 
 type ConversationStatus = "open" | "pending_human" | "all"
 
 interface Conversation {
-  id: string
+  ticketId: string
   userName: string
   userAvatar?: string
-  lastMessage: string
+  lastMessageContent: string
   timestamp: string
   status: "open" | "pending_human"
   unreadCount: number
@@ -37,33 +38,33 @@ interface Conversation {
 // Données d'exemple - À remplacer par vos vraies données
 const conversations: Conversation[] = [
   {
-    id: "1",
+    ticketId: "1",
     userName: "Alice Martin",
-    lastMessage: "J'ai besoin d'aide avec mon compte",
+    lastMessageContent: "J'ai besoin d'aide avec mon compte",
     timestamp: "2m ago",
     status: "open",
     unreadCount: 2,
   },
   {
-    id: "2",
+    ticketId: "2",
     userName: "Bob Dupont",
-    lastMessage: "Merci pour votre aide !",
+    lastMessageContent: "Merci pour votre aide !",
     timestamp: "15m ago",
     status: "pending_human",
     unreadCount: 0,
   },
   {
-    id: "3",
+    ticketId: "3",
     userName: "Claire Bernard",
-    lastMessage: "Comment puis-je réinitialiser...",
+    lastMessageContent: "Comment puis-je réinitialiser...",
     timestamp: "1h ago",
     status: "open",
     unreadCount: 5,
   },
   {
-    id: "4",
+    ticketId: "4",
     userName: "David Moreau",
-    lastMessage: "Le paiement ne fonctionne pas",
+    lastMessageContent: "Le paiement ne fonctionne pas",
     timestamp: "2h ago",
     status: "pending_human",
     unreadCount: 1,
@@ -88,11 +89,13 @@ export function InboxSidebar({
 }: InboxSidebarProps) {
   const [filter, setFilter] = React.useState<ConversationStatus>("all")
   const [search, setSearch] = React.useState("")
+  // const [conversations, setConversations] = React.useState<Conversation[]>([])
+  const { conversations: fetchedConversations, loading, error } = useChatHistory()
 
-  const filteredConversations = conversations.filter((conv) => {
+  const filteredConversations = fetchedConversations.filter((conv) => {
     const matchesFilter = filter === "all" || conv.status === filter
-    const matchesSearch = conv.userName.toLowerCase().includes(search.toLowerCase()) ||
-                         conv.lastMessage.toLowerCase().includes(search.toLowerCase())
+    const matchesSearch = conv.ticketId.toLowerCase().includes(search.toLowerCase()) ||
+                         conv.lastMessageContent.toLowerCase().includes(search.toLowerCase())
     return matchesFilter && matchesSearch
   })
 
@@ -151,12 +154,12 @@ export function InboxSidebar({
             <SidebarGroupContent>
               {filteredConversations.map((conv) => {
                 const StatusIcon = statusConfig[conv.status].icon
-                const isSelected = selectedConversationId === conv.id
+                const isSelected = selectedConversationId === conv.ticketId
                 
                 return (
                   <button
-                    key={conv.id}
-                    onClick={() => onConversationSelect?.(conv.id)}
+                    key={conv.ticketId}
+                    onClick={() => onConversationSelect?.(conv.ticketId)}
                     className={cn(
                       "w-full flex items-start gap-3 p-4 border-b transition-colors text-left",
                       "hover:bg-accent",
@@ -166,7 +169,7 @@ export function InboxSidebar({
                     {/* Avatar */}
                     <div className="relative flex-shrink-0">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-purple-600 flex items-center justify-center text-white font-semibold">
-                        {conv.userName.charAt(0)}
+                        {conv.ticketId.charAt(0)+conv.ticketId.charAt(1)}
                       </div>
                       {/* Status indicator */}
                       <div 
@@ -181,7 +184,7 @@ export function InboxSidebar({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-1">
                         <p className="font-medium text-sm truncate">
-                          {conv.userName}
+                          {conv.ticketId}
                         </p>
                         <span className="text-xs text-muted-foreground whitespace-nowrap">
                           {conv.timestamp}
@@ -189,7 +192,7 @@ export function InboxSidebar({
                       </div>
                       
                       <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                        {conv.lastMessage}
+                        {conv.lastMessageContent}
                       </p>
 
                       <div className="flex items-center gap-2">
@@ -201,12 +204,12 @@ export function InboxSidebar({
                           {statusConfig[conv.status].label}
                         </Badge>
                         
-                        {conv.unreadCount > 0 && (
+                        {conv.messageCount > 0 && (
                           <Badge 
                             variant="default" 
                             className="text-xs bg-primary"
                           >
-                            {conv.unreadCount}
+                            {conv.messageCount}
                           </Badge>
                         )}
                       </div>

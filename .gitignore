@@ -215,3 +215,5 @@ temp_files/
 /frontend/next-themes
 /frontend/lucide-react
 /frontend/.pnp.*
+/frontend/.next
+/frontend/supabase-setup

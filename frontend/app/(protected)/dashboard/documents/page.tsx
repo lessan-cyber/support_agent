@@ -28,7 +28,7 @@ import { DocumentsTable } from "@/components/dashboard/documents/documents-table
 import { DocumentsEmptyState } from "@/components/dashboard/documents/documents-empty-state"
 import { PdfPreviewModal } from "@/components/dashboard/documents/pdf-preview-modal"
 import { toast } from "sonner"
-import { getDocuments, deleteDocument, updateDocument } from "@/app/actions/upload_document"
+import { getDocuments, deleteDocument, updateDocument, getAllDocuments } from "@/app/actions/upload_document"
 import {
   Pagination,
   PaginationContent,
@@ -38,6 +38,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
+import { get } from "http"
+import { set } from "zod"
 
 interface Document {
   createElement(arg0: string): unknown
@@ -72,20 +74,33 @@ export default function DocumentsPage() {
 const limit = 12          
 
   // Fetch documents
+  // const fetchDocuments = async () => {
+  //   setLoading(true)
+  //   try {
+  //     const data = await getDocuments({
+  //       page: currentPage,
+  //       limit,
+  //       sort: sortBy,
+  //       date_filter: dateFilter,
+  //       search: searchQuery,
+  //     })
+      
+  //     setDocuments(data.documents)
+  //     setTotalDocuments(data.total)
+  //     setTotalPages(data.totalPages)
+  //   } catch (error) {
+  //     toast.error("Failed to load documents. Please try again.")
+  //   } finally {
+  //     setLoading(false)
+  //   }
+  // }
+
   const fetchDocuments = async () => {
     setLoading(true)
     try {
-      const data = await getDocuments({
-        page: currentPage,
-        limit,
-        sort: sortBy,
-        date_filter: dateFilter,
-        search: searchQuery,
-      })
-      
-      setDocuments(data.documents)
-      setTotalDocuments(data.total)
-      setTotalPages(data.totalPages)
+      const response = await getAllDocuments()
+
+      setDocuments(response.documents)
     } catch (error) {
       toast.error("Failed to load documents. Please try again.")
     } finally {
