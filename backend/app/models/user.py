@@ -5,7 +5,7 @@ import uuid
 
 from sqlalchemy import Enum as EnumType
 from sqlalchemy import ForeignKey, String
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel, TimestampMixin
@@ -46,6 +46,21 @@ class User(BaseModel, TimestampMixin):
         nullable=False,
     )
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="users")
+
+    preferences: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+        default={
+            "language": "en",
+            "timezone": "UTC",
+            "email_notifications": True,
+            "default_view": "grid",
+            "items_per_page": 12,
+            "auto_download": False,
+        },
+        server_default='{"language": "en", "timezone": "UTC", "email_notifications": true, "default_view": "grid", "items_per_page": 12, "auto_download": false}',
+        comment="User preferences stored as JSON.",
+    )
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, role='{self.role.value}', tenant_id={self.tenant_id})>"
