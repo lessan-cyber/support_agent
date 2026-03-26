@@ -25,6 +25,7 @@ from app.schemas.chat import (
     ConversationMessagesResponse,
 )
 from app.schemas.document import DocumentListResponse
+from app.schemas.user import UserPreferencesResponse, UserPreferencesUpdateRequest
 from app.services.cache import semantic_cache
 from app.services.document import document_service
 from app.services.embeddings import get_embedding_model
@@ -287,7 +288,7 @@ async def get_conversation_list(
         if params.client_email:
             filters.append(Ticket.user_email == params.client_email)
         if params.status:
-            filters.append(Ticket.status == params.status)
+            filters.append(Ticket.status == TicketStatus(params.status))
         if params.start_date:
             start_date_obj = datetime.fromisoformat(params.start_date).date()
             filters.append(Ticket.created_at >= start_date_obj)
@@ -342,7 +343,7 @@ async def get_conversation_list(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve conversation list",
-        )
+        ) from e
 
 
 @router.get(
@@ -421,4 +422,78 @@ async def get_conversation_messages(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve messages",
+        )
+
+
+@router.get("/preferences", response_model=UserPreferencesResponse)
+async def get_preferences(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get current user preferences.
+
+    Args:
+        current_user: Authenticated admin user
+
+    Returns:
+        UserPreferencesResponse with current preferences
+    """
+    return UserPreferencesResponse(preferences=current_user.preferences)
+
+
+@router.put("/preferences", response_model=UserPreferencesResponse)
+async def update_preferences(
+    request: UserPreferencesUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_rls_session),
+):
+    """
+    Update user preferences.
+
+    Performs a partial update - only provided fields will be changed.
+    Missing fields retain their current values.
+
+    Args:
+        request: Partial preferences to update
+        current_user: Authenticated admin user
+        db: RLS-scoped database session
+
+    Returns:
+        UserPreferencesResponse with updated preferences
+
+    Raises:
+        HTTPException 500: If unexpected error occurs
+    """
+    logger.info(f"User {current_user.id} updating preferences")
+
+    try:
+        # Get current preferences
+        current_prefs = (
+            dict(current_user.preferences) if current_user.preferences else {}
+        )
+
+        # Merge with provided values (only non-None fields)
+        update_data = request.model_dump(exclude_none=True)
+        current_prefs.update(update_data)
+
+        # Update user
+        current_user.preferences = current_prefs
+        await db.commit()
+        await db.refresh(current_user)
+
+        logger.info(f"User {current_user.id} preferences updated successfully")
+
+        return UserPreferencesResponse(preferences=current_user.preferences)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(
+            f"Failed to update preferences for user {current_user.id}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update preferences",
         )
