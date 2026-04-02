@@ -153,10 +153,28 @@ export async function getUser() {
     error,
   } = await supabase.auth.getUser()
 
+  console.log('[getUser] User:', user?.email)
+  console.log('[getUser] Error:', error)
+
   if (error || !user) {
+    console.log('[getUser] No user found, attempting to get from session')
+    // Fallback: essayer de récupérer depuis la session
+    const { data: { session } } = await supabase.auth.getSession()
+    console.log('[getUser] Session user:', session?.user?.email)
+    
+    if (session?.user) {
+      // Retourner un objet sérialisable
+      return {
+        id: session.user.id,
+        email: session.user.email,
+        user_metadata: session.user.user_metadata,
+        app_metadata: session.user.app_metadata,
+      }
+    }
     return null
   }
 
+  // Retourner un objet sérialisable au lieu de l'objet User complet
   return user
 }
 
@@ -179,9 +197,9 @@ export async function getUserProfile() {
     return null
   }
 
-  // Récupérer le profil depuis la table profiles
+  // Récupérer le profil depuis la table "users"
   const { data: profile, error: profileError } = await supabase
-    .from('profiles')
+    .from('users')
     .select('*')
     .eq('id', user.id)
     .single()

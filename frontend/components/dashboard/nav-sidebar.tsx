@@ -21,6 +21,15 @@ import { useUser } from "@/hooks/use-user"
 import { Dialog, DialogContent, DialogHeader, DialogTrigger } from "@/components/ui/dialog"
 import { PdfUploader } from "@/components/pdf-uploader"
 
+// user interface
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  user: {
+    id: string
+    email?: string | null
+    user_metadata?: Record<string, any>
+  } | null
+}
+
 const navItems = [
   {
     title: "Inbox",
@@ -54,11 +63,27 @@ const navItems = [
   },
 ]
 
-export function NavSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function NavSidebar({ user, ...props }: AppSidebarProps) {
   const pathname = usePathname()
-  const { user, profile, loading } = useUser()
+  
 
-  if (!user && !loading) return null
+  // Générer une couleur basée sur la première lettre du nom
+    const getAvatarColor = (name: string) => {
+      if (!name) return 'bg-gray-400'
+      const firstLetter = name.charAt(0).toUpperCase()
+      const charCode = firstLetter.charCodeAt(0)
+      const colors = [
+        'bg-red-500',
+        'bg-orange-500',
+        'bg-yellow-500',
+        'bg-green-500',
+        'bg-blue-500',
+        'bg-indigo-500',
+        'bg-purple-500',
+        'bg-pink-500',
+      ]
+      return colors[charCode % colors.length]
+    }
 
   return (
     <Sidebar
@@ -73,8 +98,8 @@ export function NavSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <div>
                 <Link href="/" className="flex items-center gap-3 group">
                   <div className="relative size-8 rounded-lg overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-400 via-purple-500 to-purple-600 blur-sm opacity-75 group-hover:opacity-100 transition-opacity" />
-                    <div className="relative w-full h-full bg-gradient-to-br from-cyan-400 to-purple-600 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-linear-to-br from-cyan-400 via-purple-500 to-purple-600 blur-sm opacity-75 group-hover:opacity-100 transition-opacity" />
+                    <div className="relative w-full h-full bg-linear-to-br from-cyan-400 to-purple-600 flex items-center justify-center">
                       <svg
                         className="w-6 h-6 text-white"
                         fill="none"
@@ -146,23 +171,19 @@ export function NavSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
 
       <SidebarFooter>
-        {loading ? (
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse" />
-            <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
-          </div>
-        ) : profile ? (
-          <NavUser
-            user={{
-              name: profile.name,
-              email: profile.email,
-              avatar: profile.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=Joe",
-            }}
-          />
-        ) : (
-          <div>Non connecté</div>
-        )}
-      </SidebarFooter>
+      {user ? (
+        <NavUser
+          user={{
+            name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+            email: user.email || '',
+            avatar: user.user_metadata?.name || user.email?.split('@')[0] || 'U',
+            avatarColor: getAvatarColor(user.user_metadata?.name || user.email?.split('@')[0] || 'U'),
+          } as any}
+        />
+      ) : (
+        <div>Non connecté</div>
+      )}
+    </SidebarFooter>
     </Sidebar>
   )
 }

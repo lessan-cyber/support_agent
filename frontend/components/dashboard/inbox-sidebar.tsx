@@ -22,52 +22,52 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { Clock, UserCheck, Inbox } from "lucide-react"
 import { useChatHistory } from "@/hooks/use-chat-history"
+import type { Conversation } from "@/lib/types/chat"
+import { useRouter } from "next/navigation"
 
 type ConversationStatus = "open" | "pending_human" | "all"
-
-interface Conversation {
-  ticketId: string
-  userName: string
-  userAvatar?: string
-  lastMessageContent: string
-  timestamp: string
-  status: "open" | "pending_human"
-  unreadCount: number
-}
 
 // Données d'exemple - À remplacer par vos vraies données
 const conversations: Conversation[] = [
   {
     ticketId: "1",
-    userName: "Alice Martin",
+    userEmail: "alice@example.com",
     lastMessageContent: "J'ai besoin d'aide avec mon compte",
+    lastMessageAt: new Date(),
+    lastMessageSender: "user",
     timestamp: "2m ago",
     status: "open",
-    unreadCount: 2,
+    messageCount: 2,
   },
   {
     ticketId: "2",
-    userName: "Bob Dupont",
+    userEmail: "bob@example.com",
     lastMessageContent: "Merci pour votre aide !",
+    lastMessageAt: new Date(),
+    lastMessageSender: "bot",
     timestamp: "15m ago",
     status: "pending_human",
-    unreadCount: 0,
+    messageCount: 0,
   },
   {
     ticketId: "3",
-    userName: "Claire Bernard",
+    userEmail: "claire@example.com",
     lastMessageContent: "Comment puis-je réinitialiser...",
+    lastMessageAt: new Date(),
+    lastMessageSender: "user",
     timestamp: "1h ago",
     status: "open",
-    unreadCount: 5,
+    messageCount: 5,
   },
   {
     ticketId: "4",
-    userName: "David Moreau",
+    userEmail: "david@example.com",
     lastMessageContent: "Le paiement ne fonctionne pas",
+    lastMessageAt: new Date(),
+    lastMessageSender: "user",
     timestamp: "2h ago",
     status: "pending_human",
-    unreadCount: 1,
+    messageCount: 1,
   },
 ]
 
@@ -89,13 +89,17 @@ export function InboxSidebar({
 }: InboxSidebarProps) {
   const [filter, setFilter] = React.useState<ConversationStatus>("all")
   const [search, setSearch] = React.useState("")
-  // const [conversations, setConversations] = React.useState<Conversation[]>([])
-  const { conversations: fetchedConversations, loading, error } = useChatHistory()
+  // routeur pour navigation programmatique
+  const router = useRouter()
+  
+  // Appeler le hook directement
+  const { conversations: fetchedConversations, loading, error, refetch } = useChatHistory()
 
-  const filteredConversations = fetchedConversations.filter((conv) => {
+  const filteredConversations = fetchedConversations.filter((conv: Conversation) => {
     const matchesFilter = filter === "all" || conv.status === filter
-    const matchesSearch = conv.ticketId.toLowerCase().includes(search.toLowerCase()) ||
-                         conv.lastMessageContent.toLowerCase().includes(search.toLowerCase())
+    const matchesSearch = 
+      (conv.ticketId?.toLowerCase().includes(search.toLowerCase()) ?? false) ||
+      (conv.lastMessageContent?.toLowerCase().includes(search.toLowerCase()) ?? false)
     return matchesFilter && matchesSearch
   })
 
@@ -149,84 +153,100 @@ export function InboxSidebar({
       </SidebarHeader>
 
       <SidebarContent className="p-0">
-        <ScrollArea className="h-full">
-          <SidebarGroup className="px-0">
-            <SidebarGroupContent>
-              {filteredConversations.map((conv) => {
-                const StatusIcon = statusConfig[conv.status].icon
-                const isSelected = selectedConversationId === conv.ticketId
-                
-                return (
-                  <button
-                    key={conv.ticketId}
-                    onClick={() => onConversationSelect?.(conv.ticketId)}
-                    className={cn(
-                      "w-full flex items-start gap-3 p-4 border-b transition-colors text-left",
-                      "hover:bg-accent",
-                      isSelected && "bg-accent border-l-4 border-l-primary"
-                    )}
-                  >
-                    {/* Avatar */}
-                    <div className="relative flex-shrink-0">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-purple-600 flex items-center justify-center text-white font-semibold">
-                        {conv.ticketId.charAt(0)+conv.ticketId.charAt(1)}
-                      </div>
-                      {/* Status indicator */}
-                      <div 
-                        className={cn(
-                          "absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white",
-                          statusConfig[conv.status].color
-                        )} 
-                      />
-                    </div>
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+            <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin mb-3" />
+            <p className="text-sm">Loading conversations...</p>
+          </div>
+        )}
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <p className="font-medium text-sm truncate">
-                          {conv.ticketId}
-                        </p>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          {conv.timestamp}
-                        </span>
-                      </div>
-                      
-                      <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                        {conv.lastMessageContent}
-                      </p>
+        {error && (
+          <div className="flex flex-col items-center justify-center py-12 text-center text-destructive p-4">
+            <Inbox className="w-12 h-12 mb-3 opacity-50" />
+            <p className="text-sm">{error}</p>
+          </div>
+        )}
 
-                      <div className="flex items-center gap-2">
-                        <Badge 
-                          variant="outline" 
-                          className="text-xs"
-                        >
-                          <StatusIcon className="w-3 h-3 mr-1" />
-                          {statusConfig[conv.status].label}
-                        </Badge>
+        {!loading && !error && (
+          <ScrollArea className="h-full">
+            <SidebarGroup className="px-0">
+              <SidebarGroupContent>
+                {filteredConversations.map((conv) => {
+                  const StatusIcon = statusConfig[conv.status].icon
+                  const isSelected = selectedConversationId === conv.ticketId
+                  
+                  return (
+                    <button
+                      key={conv.ticketId}
+                      onClick={() => router.push(`/dashboard/inbox/?conversation=${conv.ticketId}`)}
+                      className={cn(
+                        "w-full flex items-start gap-3 p-4 border-b transition-colors text-left",
+                        "hover:bg-accent",
+                        isSelected && "bg-accent border-l-4 border-l-primary"
+                      )}
+                    >
+                      {/* Avatar */}
+                      <div className="relative shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-linear-to-br from-cyan-400 to-purple-600 flex items-center justify-center text-white font-semibold">
+                          {conv.ticketId.charAt(0)+conv.ticketId.charAt(1)}
+                        </div>
+                        {/* Status indicator */}
+                        <div 
+                          className={cn(
+                            "absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white",
+                            statusConfig[conv.status].color
+                          )} 
+                        />
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="font-medium text-sm truncate">
+                            {conv.ticketId}
+                          </p>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {conv.timestamp}
+                          </span>
+                        </div>
                         
-                        {conv.messageCount > 0 && (
-                          <Badge 
-                            variant="default" 
-                            className="text-xs bg-primary"
-                          >
-                            {conv.messageCount}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                          {conv.lastMessageContent}
+                        </p>
 
-              {filteredConversations.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                  <Inbox className="w-12 h-12 mb-3 opacity-50" />
-                  <p className="text-sm">No conversations found</p>
-                </div>
-              )}
-            </SidebarGroupContent>
-          </SidebarGroup>
-        </ScrollArea>
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant="outline" 
+                            className="text-xs"
+                          >
+                            <StatusIcon className="w-3 h-3 mr-1" />
+                            {statusConfig[conv.status].label}
+                          </Badge>
+                          
+                          {conv.messageCount > 0 && (
+                            <Badge 
+                              variant="default" 
+                              className="text-xs bg-primary"
+                            >
+                              {conv.messageCount}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+
+                {filteredConversations.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                    <Inbox className="w-12 h-12 mb-3 opacity-50" />
+                    <p className="text-sm">No conversations found</p>
+                  </div>
+                )}
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </ScrollArea>
+        )}
       </SidebarContent>
     </Sidebar>
   )

@@ -1,10 +1,12 @@
 "use client";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import React from "react";
 
 export default function NavBar() {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const pathname = usePathname();
   
   return (
     <header className="absolute top-0 left-0 right-0 z-50 px-6 py-4">
@@ -34,13 +36,31 @@ export default function NavBar() {
 
         {/* Navigation Links */}
         <div className="hidden md:flex items-center gap-1">
-          <NavLink href="/" active>
+          <NavLink href="/" active={pathname === "/"}>
             Home
           </NavLink>
-          <NavLink href="/about">About Us</NavLink>
-          <NavLink href="/features">Features</NavLink>
-          <NavLink href="/pricing">Pricing</NavLink>
-          <NavLink href="/contact">Contact Us</NavLink>
+          <NavLink href="/about" active={pathname === "/about"}>
+            About Us
+          </NavLink>
+          <NavLink href="/features" active={pathname === "/features"}>
+            Features
+          </NavLink>
+          {/* <NavLink href="/pricing" active={pathname === "/pricing"}>
+            Pricing
+          </NavLink> */}
+          <NavLink href="/contact" active={pathname === "/contact"}>
+            Contact Us
+          </NavLink>
+        </div>
+
+        
+        {/* CTA Button & Theme Toggle */}
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+            <Link href="/dashboard" className="hidden md:flex relative px-6 py-2.5 rounded-full font-medium text-white overflow-hidden group shadow-lg shadow-primary/20">
+              <div className="absolute inset-0 bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 transition-transform group-hover:scale-105" />
+              <span className="relative">Get Started</span>
+            </Link>
         </div>
                 {/* Mobile navigation */}
         <div className="md:hidden">
@@ -62,30 +82,28 @@ export default function NavBar() {
             </svg>
           </button>
           {isMenuOpen && (
-            <div className="absolute top-full right-0 mt-2 w-48 flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-lg py-2">
-              <NavLink href="/" active>
+            <div className="absolute top-full right-0 mt-2 w-48 flex flex-col gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-2">
+              <NavLink href="/" active={pathname === "/"} onNavigate={() => setIsMenuOpen(false)}>
                 Home
               </NavLink>
-              <NavLink href="/about">About Us</NavLink>
-              <NavLink href="/features">Features</NavLink>
-              <NavLink href="/pricing">Pricing</NavLink>
-              <NavLink href="/contact">Contact Us</NavLink>
+              <NavLink href="/about" active={pathname === "/about"} onNavigate={() => setIsMenuOpen(false)} >
+                About Us
+              </NavLink>
+              <NavLink href="/features" active={pathname === "/features"} onNavigate={() => setIsMenuOpen(false)}>
+                Features
+              </NavLink>
+              {/* <NavLink href="/pricing" active={pathname === "/pricing"} onNavigate={() => setIsMenuOpen(false)}>
+                Pricing
+              </NavLink> */}
+              <NavLink href="/contact" active={pathname === "/contact"} onNavigate={() => setIsMenuOpen(false)}>
+                Contact Us
+              </NavLink>
               <Link href="/dashboard" className="relative px-6 py-2.5 rounded-full font-medium text-white overflow-hidden group shadow-lg shadow-primary/20">
               <div className="absolute inset-0 bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 transition-transform group-hover:scale-105" />
               <span className="relative">Get Started</span>
               </Link>
             </div>
           )}
-        </div>
-
-        
-        {/* CTA Button & Theme Toggle */}
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
-            <Link href="/dashboard" className="hidden md:flex relative px-6 py-2.5 rounded-full font-medium text-white overflow-hidden group shadow-lg shadow-primary/20">
-              <div className="absolute inset-0 bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 transition-transform group-hover:scale-105" />
-              <span className="relative">Get Started</span>
-            </Link>
         </div>
       </nav>
     </header>
@@ -98,14 +116,17 @@ function NavLink({
   href,
   children,
   active = false,
+  onNavigate,
 }: {
   href: string;
   children: React.ReactNode;
   active?: boolean;
+  onNavigate?: () => void;
 }) {
   return (
     <Link
       href={href}
+      onClick={onNavigate}
       className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
         active
           ? "bg-slate-900/10 text-slate-900 backdrop-blur-sm dark:bg-white/10 dark:text-white"
