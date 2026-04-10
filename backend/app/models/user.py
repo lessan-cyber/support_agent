@@ -5,7 +5,8 @@ import uuid
 
 from sqlalchemy import Enum as EnumType
 from sqlalchemy import ForeignKey, String
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel, TimestampMixin
@@ -60,6 +61,11 @@ class User(BaseModel, TimestampMixin):
         },
         server_default='{"language": "en", "timezone": "UTC", "email_notifications": true, "default_view": "grid", "items_per_page": 12, "auto_download": false}',
         comment="User preferences stored as JSON.",
+    )
+    name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        comment="User's full name, synced from auth.users.",
     )
 
     def __repr__(self) -> str:
