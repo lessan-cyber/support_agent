@@ -1,0 +1,24 @@
+meta {
+  name: add allowed domain
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{backend_base_url}}/api/v1/admin/tenants/874f1084-875e-4e2f-8b61-ba7decd58da8/allowed-domains
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "domains":[
+      "https://platform.kimi.ai/docs/models"
+    ]
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

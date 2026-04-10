@@ -1,0 +1,16 @@
+meta {
+  name: get allowed domains
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{backend_base_url}}/api/v1/admin/tenants/874f1084-875e-4e2f-8b61-ba7decd58da8/allowed-domains
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
