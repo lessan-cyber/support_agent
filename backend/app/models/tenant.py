@@ -22,10 +22,9 @@ class Tenant(BaseModel):
     )
 
     # Relationship to users within the same tenant
+    # Note: Cascade is handled at DB level via FK ondelete="CASCADE"
     # pyrefly: ignore [unknown-name]
-    users: Mapped[list["User"]] = relationship(
-        "User", back_populates="tenant", cascade="all, delete-orphan"
-    )
+    users: Mapped[list["User"]] = relationship("User", back_populates="tenant")
 
     def __repr__(self) -> str:
         return f"<Tenant(id={self.id}, name='{self.name}')>"
@@ -42,8 +41,9 @@ def validate_allowed_domains(mapper, connection, target):
     cleaned_domains = []
     # Regex for a valid domain name (simplified)
     # Allows subdomains, requires at least one dot, ends with 2+ letters
+    # Prevents consecutive dots (e.g., example..com)
     domain_regex = re.compile(
-        r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"
+        r"^(?!.*\.\.)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$"
     )
 
     for domain in target.allowed_domains:
@@ -60,7 +60,9 @@ def validate_allowed_domains(mapper, connection, target):
         s_domain = s_domain.split("/")[0]
 
         if not domain_regex.match(s_domain):
-            raise ValueError(f"Invalid domain format: '{domain}' (sanitized: '{s_domain}')")
+            raise ValueError(
+                f"Invalid domain format: '{domain}' (sanitized: '{s_domain}')"
+            )
 
         cleaned_domains.append(s_domain)
 

@@ -38,6 +38,7 @@ async def upload_document(
     """
     await validate_pdf(file)
     storage_path = f"{current_user.tenant_id}/{file.filename}"
+    print(f"Uploading file: {file.filename}, storage_path: {storage_path}")
     db_file = File(
         tenant_id=current_user.tenant_id,
         filename=file.filename,
@@ -48,41 +49,50 @@ async def upload_document(
     await db.commit()
     await db.refresh(db_file)
 
-    temp_dir = "temp_files"
-    await asyncio.to_thread(os.makedirs, temp_dir, exist_ok=True)
-    temp_file_path = os.path.join(temp_dir, f"{uuid()}_{file.filename}")
-
+    # Read file content in chunks to avoid buffering oversize uploads in memory
+    # This avoids filesystem issues between Docker containers
     try:
+        file_content = bytearray()
+        chunk_size = 4096  # 4KB chunks
         total_size = 0
-        with open(temp_file_path, "wb") as buffer:
-            while chunk := await file.read(4096):
-                total_size += len(chunk)
-                if total_size > settings.MAX_FILE_SIZE:
-                    os.remove(temp_file_path)
-                    raise HTTPException(
-                        status_code=413, detail="File size exceeds the 20MB limit."
-                    )
-                buffer.write(chunk)
-
+        
+        while chunk := await file.read(chunk_size):
+            total_size += len(chunk)
+            if total_size > settings.MAX_FILE_SIZE:
+                raise HTTPException(
+                    status_code=413, detail="File size exceeds the 40MB limit."
+                )
+            file_content.extend(chunk)
+        
+        # Convert to bytes for Celery task
+        file_content = bytes(file_content)
     except Exception as e:
-        logger.error(f"Failed to save uploaded file locally: {e}")
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
+        logger.error(f"Failed to read uploaded file: {e}")
         db_file.status = FileStatus.FAILED
         await db.commit()
         await db.refresh(db_file)
         if isinstance(e, HTTPException):
             raise
         raise HTTPException(
-            status_code=500, detail="Failed to save uploaded file."
+            status_code=500, detail="Failed to read uploaded file."
         ) from e
 
-    task = upload_file_and_trigger_ingestion.delay(  # pyright: ignore[reportFunctionMemberAccess]
-        local_file_path=temp_file_path,
-        file_id=str(db_file.id),
-        tenant_id=str(current_user.tenant_id),
-        filename=file.filename,
-    )
-    response = db_file.__dict__
-    response["task_id"] = task.id
-    return FileUploadResponse.model_validate(response)
+    try:
+        # Upload file to storage first, then trigger processing
+        task = upload_file_and_trigger_ingestion.delay(
+            file_content=file_content,
+            file_id=str(db_file.id),
+            tenant_id=str(current_user.tenant_id),
+            filename=file.filename,
+        )
+        response = db_file.__dict__
+        response["task_id"] = task.id
+        return FileUploadResponse.model_validate(response)
+    except Exception as e:
+        logger.error(f"Failed to trigger ingestion task: {e}")
+        db_file.status = FileStatus.FAILED
+        await db.commit()
+        await db.refresh(db_file)
+        raise HTTPException(
+            status_code=500, detail="Failed to trigger document processing."
+        ) from e

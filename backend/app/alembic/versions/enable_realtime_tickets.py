@@ -33,7 +33,7 @@ def upgrade() -> None:
     op.execute("""
         CREATE POLICY "Admins can receive real-time ticket updates"
         ON tickets FOR SELECT
-        TO authenticatedalembic  -c app/alembic.ini revision --autogenerate -m "adding indexing to tenant_id and file_id"
+        TO authenticated
         USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()))
     """)
 

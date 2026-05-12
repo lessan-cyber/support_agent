@@ -31,7 +31,7 @@ class Settings(BaseSettings):
         default=0.9, alias="CACHE_SIMILARITY_THRESHOLD"
     )
     CACHE_TTL_SECONDS: int = Field(default=604800, alias="CACHE_TTL_SECONDS")  # 7 days
-    MAX_FILE_SIZE: int = 20 * 1024 * 1024
+    MAX_FILE_SIZE: int = 40 * 1024 * 1024
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

@@ -36,7 +36,16 @@ async def validate_tenant_and_origin(
     if not tenant:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Tenant not found")
 
-    if not settings.DEBUG and origin not in tenant.allowed_domains:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Domain not allowed")
+    if not settings.DEBUG:
+        if not tenant.allowed_domains:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "No domains configured for this tenant. Please contact your administrator.",
+            )
+        if origin not in tenant.allowed_domains:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                f"Domain '{origin}' is not allowed. Allowed domains: {tenant.allowed_domains}",
+            )
 
     return tenant
