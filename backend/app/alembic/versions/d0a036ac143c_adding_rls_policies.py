@@ -86,7 +86,6 @@ def downgrade() -> None:
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON files")
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON messages")
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON tickets")
-    op.execute("DROP POLICY IF EXISTS tenant_isolation ON tickets")
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON documents")
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON users")
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON tenants")

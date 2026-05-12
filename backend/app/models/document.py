@@ -21,6 +21,9 @@ class Document(BaseModel):
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
     embedding: Mapped[list[float]] = mapped_column(Vector(384), nullable=False)
+    page_number: Mapped[int] = mapped_column(
+        nullable=True, comment="Source page number in PDF (0-indexed)."
+    )
     additional_data: Mapped[dict] = mapped_column(
         JSONB, nullable=True, comment="Additional metadata for the document."
     )
