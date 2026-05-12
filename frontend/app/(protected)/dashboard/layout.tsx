@@ -5,6 +5,7 @@ import { NavSidebar } from "@/components/dashboard/nav-sidebar"
 import { Toaster } from "@/components/ui/sonner"
 import { getUser } from "@/app/actions/auth"
 import { redirect } from "next/navigation"
+import { Chatbot } from "@/components/dashboard/Chatbot"
 
 export default async function DashboardLayout({
   children,
@@ -26,6 +27,7 @@ export default async function DashboardLayout({
         <Toaster />
         {children}
       </SidebarInset>
+      <Chatbot />
     </SidebarProvider>
   )
 }

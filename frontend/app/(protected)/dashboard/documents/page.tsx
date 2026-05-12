@@ -42,7 +42,6 @@ import { get } from "http"
 import { set } from "zod"
 
 interface Document {
-  createElement(arg0: string): unknown
   id: string
   filename: string
   size: number
@@ -113,14 +112,14 @@ const limit = 12
   }, [currentPage, sortBy, dateFilter, searchQuery])
 
   // Handle document actions
-  const handleDownload = async (document: Document) => {
+  const handleDownload = async (doc: Document) => {
     try {
-      const response = await fetch(document.url)
+      const response = await fetch(doc.url)
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
-      const a = document.createElement("a")
+      const a = document.createElement("a") as HTMLAnchorElement
       a.href = url
-      a.download = document.filename
+      a.download = doc.filename
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)

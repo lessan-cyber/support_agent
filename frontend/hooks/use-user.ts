@@ -1,22 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getUser } from '@/app/actions/auth'
+import { createClient } from '@/utils/supabase/client'
 
 /**
- * Represents a user profile with personal and account information.
+ * Simple user interface
  */
-interface Profile {
-  id: string
-  name: string
-  email: string
-  avatar_url?: string
-  bio?: string
-  preferences?: Record<string, any>
-  created_at: string
-  updated_at: string
-}
-
 interface SimpleUser {
   id: string
   email: string | null
@@ -26,43 +15,62 @@ interface SimpleUser {
 
 /**
  * Custom hook to get the current authenticated user.
- * Uses server action to fetch user securely.
- * @returns {{ user: SimpleUser | null, profile: Profile | null, loading: boolean }}
+ * Uses Supabase client directly for real-time updates.
+ * @returns {{ user: SimpleUser | null, loading: boolean }}
  */
-
 export function useUser() {
   const [user, setUser] = useState<SimpleUser | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const supabase = createClient()
+
+    // Récupérer l'utilisateur actuel
     const initUser = async () => {
       try {
         setLoading(true)
-        const userData = await getUser()
-        console.log('[useUser] userData:', userData?.email)
+        const { data: { user: authUser } } = await supabase.auth.getUser()
         
-        if (userData) {
-          // setUser(userData) --- IGNORE ---
-          console.log('[useUser] User set:', userData.email)
-          // Profile est null car getUser() retourne seulement l'utilisateur
-          setProfile(null)
+        if (authUser) {
+          setUser({
+            id: authUser.id,
+            email: authUser.email ?? null,
+            user_metadata: authUser.user_metadata,
+            app_metadata: authUser.app_metadata,
+          })
+          console.log('[useUser] User loaded:', authUser.email)
         } else {
-          console.log('[useUser] No user data returned')
           setUser(null)
-          setProfile(null)
+          console.log('[useUser] No authenticated user')
         }
       } catch (error) {
-        console.error('Error initializing user:', error)
+        console.error('[useUser] Error fetching user:', error)
         setUser(null)
-        setProfile(null)
       } finally {
         setLoading(false)
       }
     }
 
     initUser()
+
+    // S'abonner aux changements d'authentication
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email ?? null,
+          user_metadata: session.user.user_metadata,
+          app_metadata: session.user.app_metadata,
+        })
+      } else {
+        setUser(null)
+      }
+    })
+
+    return () => {
+      subscription?.unsubscribe()
+    }
   }, [])
 
-  return { user, profile, loading }
+  return { user, loading }
 }

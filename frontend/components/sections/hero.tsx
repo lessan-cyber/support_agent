@@ -1,7 +1,9 @@
+
 import Link from 'next/link';
 import { HeroBackground } from './hero-bg';
 
 import Spline from '@splinetool/react-spline/next';
+import { ScrollToDemoBtn } from '../ui/scroll-to-demo-btn';
 
 export default function Hero() {
   return (
@@ -42,32 +44,11 @@ export default function Hero() {
               <span className="relative">Get Started</span>
           </Link>
             
-            <button className="px-8 py-3.5 rounded-full font-semibold text-slate-700 dark:text-gray-300 border-2 border-slate-300 dark:border-gray-600 hover:border-slate-400 dark:hover:border-gray-500 hover:text-slate-900 dark:hover:text-white transition-all hover:bg-slate-100/50 dark:hover:bg-white/5 backdrop-blur-sm">
-              Request a Demo
-            </button>
+            <ScrollToDemoBtn />
           </div>
         </div>
       </div>
 
-      {/* Bottom Wave Effect */}
-      {/* <div className="absolute bottom-0 left-0 right-0 h-32">
-        <svg
-          className="absolute bottom-0 w-full h-full"
-          viewBox="0 0 1440 200"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          preserveAspectRatio="none"
-        >
-          <path
-            d="M0 100C240 150 480 180 720 150C960 120 1200 80 1440 100V200H0V100Z"
-            className="fill-cyan-500/20"
-          />
-          <path
-            d="M0 120C240 140 480 160 720 140C960 120 1200 100 1440 120V200H0V120Z"
-            className="fill-cyan-400/10"
-          />
-        </svg>
-      </div> */}
     </section>
   );
 }
