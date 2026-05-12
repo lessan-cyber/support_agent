@@ -1,47 +1,67 @@
-import { createClient } from '@/utils/supabase/server'
+'use client'
 
-export default async function DashboardPage() {
-  const supabase = await createClient()
-  
-  // Récupérer l'utilisateur
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+import { useState } from 'react'
+import { useUser } from '@/hooks/use-user'
+import { useChatHistory } from '@/hooks/use-chat-history'
+import { DashboardHeader } from '@/components/dashboard/dashboard-header'
+import { StatsCards } from '@/components/dashboard/stats-cards'
+import { TicketsPanel } from '@/components/dashboard/tickets-panel'
+import { LiveConversation } from '@/components/dashboard/live-conversation'
 
-  // Exemple: Récupérer des données depuis votre base de données
-  // const { data: messages } = await supabase
-  //   .from('messages')
-  //   .select('*')
-  //   .eq('user_id', user?.id)
+export default function DashboardPage() {
+  const { user, loading: userLoading } = useUser()
+  const { conversations, loading: chatLoading, error } = useChatHistory()
+  const [selectedTicketId, setSelectedTicketId] = useState<string>()
+
+  const loading = userLoading || chatLoading
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 border border-red-200 text-red-900 p-4 rounded-lg">
+          <p className="font-semibold">Erreur</p>
+          <p className="text-sm mt-1">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-muted rounded-lg p-8 text-center">
+          <p className="text-muted-foreground">Chargement du dashboard...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground mt-2">
-          Bienvenue, {user?.email}
-        </p>
-      </div>
+    <div className="space-y-6 m-4">
+      {/* Header */}
+      <DashboardHeader 
+        user={user as { email?: string; user_metadata?: { name?: string } }}
+        conversations={conversations}
+      />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <div className="border rounded-lg p-6">
-          <h3 className="font-semibold mb-2">Statistiques</h3>
-          <p className="text-2xl font-bold">0</p>
-          <p className="text-sm text-muted-foreground">Messages</p>
+      {/* Stats Cards */}
+      <StatsCards conversations={conversations} />
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          {/* Tickets Panel */}
+          <TicketsPanel
+            conversations={conversations}
+            selectedTicketId={selectedTicketId}
+            onSelectTicket={setSelectedTicketId}
+            limit={10}
+          />
         </div>
-        
-        <div className="border rounded-lg p-6">
-          <h3 className="font-semibold mb-2">Activité</h3>
-          <p className="text-2xl font-bold">0</p>
-          <p className="text-sm text-muted-foreground">Actions aujourd'hui</p>
-        </div>
-        
-        <div className="border rounded-lg p-6">
-          <h3 className="font-semibold mb-2">Profil</h3>
-          <p className="text-sm">ID: {user?.id.slice(0, 8)}...</p>
-          <p className="text-sm text-muted-foreground">
-            Créé le {new Date(user?.created_at || '').toLocaleDateString('fr-FR')}
-          </p>
+
+        <div>
+          {/* Live Conversation */}
+          <LiveConversation ticketId={selectedTicketId} />
         </div>
       </div>
     </div>
