@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input"
 
 const ContactPage = () => {
       const [error, setError] = React.useState<string | null>(null)
+      const [success, setSuccess] = React.useState<string | null>(null)
       const [isPending, setIsPending] = React.useState(false)
 
       const contactSchema = z.object({
@@ -30,11 +31,36 @@ const ContactPage = () => {
         const { 
             register, 
             handleSubmit, 
-            formState: { errors } } = useForm<ContactFormData>({
+            formState: { errors },
+            reset } = useForm<ContactFormData>({
                 resolver: zodResolver(contactSchema),
             })
             
-      const onSubmit = (data: ContactFormData) => {}
+      const onSubmit = async (data: ContactFormData) => {
+        setIsPending(true)
+        setError(null)
+        setSuccess(null)
+        try {
+          const response = await fetch("/api/contact", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(data),
+          })
+
+          if (!response.ok) {
+            throw new Error("Failed to send message. Please try again.")
+          }
+
+          setSuccess("Message sent successfully! We'll get back to you soon.")
+          reset()
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "An unexpected error occurred")
+        } finally {
+          setIsPending(false)
+        }
+      }
   return (
     <AuthBackground>
     <main className="flex flex-col md:flex-row gap-6 relative min-h-screen items-center justify-center p-8 z-10 md:px-12">
@@ -78,6 +104,11 @@ const ContactPage = () => {
             {error && (
               <Alert variant="destructive" className="mb-4">
                 <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            {success && (
+              <Alert className="mb-4 bg-green-50 border-green-200">
+                <AlertDescription className="text-green-800">{success}</AlertDescription>
               </Alert>
             )}
             <div className="flex flex-col gap-6">
