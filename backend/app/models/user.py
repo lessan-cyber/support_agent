@@ -69,6 +69,22 @@ class User(BaseModel, TimestampMixin):
     )
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="users")
 
+from typing import TypedDict
+
+class UserPreferencesDict(TypedDict):
+    language: str
+    timezone: str
+    email_notifications: bool
+    default_view: str
+    items_per_page: int
+    auto_download: bool
+
+
+class User(BaseModel, TimestampMixin):
+    __tablename__ = "users"
+    
+    # ... other fields ...
+    
     preferences: Mapped[UserPreferencesDict] = mapped_column(
         JSONB,
         nullable=False,
