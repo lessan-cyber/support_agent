@@ -92,20 +92,13 @@ export async function signup(data: SignupInput) {
     }
   }
 
-  // 3. Stocker le token dans un cookie HTTP-only si disponible
-  if (authData.session?.access_token) {
-    const cookieStore = await cookies()
-    cookieStore.set('auth-token', authData.session.access_token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 jours
-      path: '/',
-    })
+  if (authData.session) {
+    revalidatePath('/', 'layout')
+    redirect('/dashboard')
   }
 
   revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  redirect('/login')
 }
 
 export async function signOut() {
