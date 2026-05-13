@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -63,6 +64,14 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 class ConditionalGZipMiddleware:
     def __init__(
@@ -79,15 +88,10 @@ class ConditionalGZipMiddleware:
         )
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        # Check if this is a request that should not be compressed
-        should_skip_compression = False
-
-        # Skip compression for SSE endpoints
-        if scope["path"] == "/api/v1/chat/stream":
-            should_skip_compression = True
-
-        # Skip compression if response headers indicate SSE
-        # We need to wrap the send function to check headers
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        should_skip_compression = scope.get("path") == "/api/v1/chat/stream"
         if not should_skip_compression:
             # Use the gzip middleware for non-SSE responses
             await self.gzip_middleware(scope, receive, send)

@@ -21,8 +21,11 @@ import {
 import { Switch } from "@/components/ui/switch"
 import Link from "next/link"
 import { useRouter } from "next/navigation";
-import { useUser, useUsers } from "@/hooks/use-user"
+import { useUser } from "@/hooks/use-user"
 import { signOut } from "@/app/actions/auth"
+
+
+
 
 // This is sample data
 const data = {
@@ -130,21 +133,44 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { setOpen } = useSidebar()
   const router = useRouter();
 
-    const { user, profile, loading } = useUser()
+    // Renomme lors de la destructuration
+  const { user: currentUser, profile, loading } = useUser()
+  // Afficher le contenu uniquement après le chargement
+  const isReady = !loading
+
     const [showMenu, setShowMenu] = React.useState(false)
     const [isPending, startTransition] = React.useTransition()
   
+    // React.useEffect(() => {
+    //   console.log('[AppSidebar] State:', { loading, userExists: !!user, userName: user?.email })
+    //   console.log('[AppSidebar] Full user object:', user)
+    // }, [loading, user])
+
     const handleSignOut = () => {
       startTransition(async () => {
         await signOut()
       })
     }
 
-    // React.useEffect(() => {
-    //   console.log('[AppSidebar] State:', { loading, userExists: !!user, profileExists: !!profile, userName: profile?.name })
-    // }, [loading, user, profile])
+    // Générer une couleur basée sur la première lettre du nom
+    const getAvatarColor = (name: string) => {
+      if (!name) return 'bg-gray-400'
+      const firstLetter = name.charAt(0).toUpperCase()
+      const charCode = firstLetter.charCodeAt(0)
+      const colors = [
+        'bg-red-500',
+        'bg-orange-500',
+        'bg-yellow-500',
+        'bg-green-500',
+        'bg-blue-500',
+        'bg-indigo-500',
+        'bg-purple-500',
+        'bg-pink-500',
+      ]
+      return colors[charCode % colors.length]
+    }
   
-    if (!user && !loading) return null
+    
 
   return (
     <Sidebar
@@ -268,22 +294,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter>
-          {loading ? (
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse" />
-                  <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
-                </div>
-              ) : profile ? (
-                <NavUser 
-                  user={{ 
-                    name: profile.name, 
-                    email: profile.email, 
-                    avatar: profile.avatar_url || "/avatars/default.jpg" 
-                  }} 
-                />
-              ) : (
-                <div>Non connecté</div>
-              )}
+          {!isReady ? (
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse" />
+              <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+            </div>
+          ) : currentUser ? (
+            <NavUser
+              user={{
+                name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User',
+                email: currentUser.email || '',
+                avatar: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'U',
+                avatarColor: getAvatarColor(currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'U'),
+              } as any}
+            />
+          ) : (
+            <div>Non connecté</div>
+          )}
             </SidebarFooter>
       </Sidebar>
 

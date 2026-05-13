@@ -77,32 +77,27 @@ function PreferencesSkeleton() {
 export default function PreferencesPage() {
   const { user, profile, loading: userLoading } = useUser()
   const [saving, setSaving] = useState(false)
+  const [hasChanges, setHasChanges] = useState(false)
 
   const [preferences, setPreferences] = useState<UserPreferences>({
     default_view: "grid",
     items_per_page: 12,
     auto_download: false,
   })
-  const [savedPreferences, setSavedPreferences] = useState<UserPreferences>(preferences)
-
-  const hasChanges = preferences.default_view !== savedPreferences.default_view ||
-    preferences.items_per_page !== savedPreferences.items_per_page ||
-    preferences.auto_download !== savedPreferences.auto_download
 
   useEffect(() => {
     if (profile?.preferences) {
-      const merged: UserPreferences = {
+      setPreferences({
         default_view: profile.preferences.default_view || "grid",
         items_per_page: profile.preferences.items_per_page || 12,
         auto_download: profile.preferences.auto_download || false,
-      }
-      setPreferences(merged)
-      setSavedPreferences(merged)
+      })
     }
   }, [profile])
 
   const handleChange = (field: keyof UserPreferences, value: any) => {
     setPreferences((prev) => ({ ...prev, [field]: value }))
+    setHasChanges(true)
   }
 
   const handleSave = async () => {
@@ -122,8 +117,8 @@ export default function PreferencesPage() {
 
       if (!response.ok) throw new Error("Failed to update preferences")
 
-      setSavedPreferences({ ...preferences })
       toast.success("Your preferences have been updated.", { position: "top-right" })
+      setHasChanges(false)
     } catch (error) {
       toast.error("Failed to update preferences. Please try again.", { position: "top-right" })
     } finally {
@@ -223,7 +218,14 @@ export default function PreferencesPage() {
           <Button
             variant="outline"
             onClick={() => {
-              setPreferences({ ...savedPreferences })
+              if (profile?.preferences) {
+                setPreferences({
+                  default_view: profile.preferences.default_view || "grid",
+                  items_per_page: profile.preferences.items_per_page || 12,
+                  auto_download: profile.preferences.auto_download || false,
+                })
+              }
+              setHasChanges(false)
             }}
           >
             Cancel

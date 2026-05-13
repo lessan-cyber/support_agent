@@ -15,8 +15,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
 parts/
 sdist/
 var/
@@ -207,6 +205,16 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 temp_files/
+
+
+# Node modules and build output
+/frontend/node_modules
+/frontend/.pnp
+/frontend/next-themes
+/frontend/lucide-react
+/frontend/.pnp.*
+/frontend/.next
+/frontend/supabase-setup
 DOCKER.md
 ESCALATION_WORKFLOW.md
 MILESTONE_5_SUMMARY.md

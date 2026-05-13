@@ -58,10 +58,17 @@ class User(BaseModel, TimestampMixin):
     preferences: Mapped[dict] = mapped_column(
         JSONB,
         nullable=False,
-        default=dict(USER_PREFERENCES_DEFAULTS),
-        comment="User preferences stored as JSON (language, timezone, notifications, etc.).",
+        default={
+            "language": "en",
+            "timezone": "UTC",
+            "email_notifications": True,
+            "default_view": "grid",
+            "items_per_page": 12,
+            "auto_download": False,
+        },
+        server_default='{"language": "en", "timezone": "UTC", "email_notifications": true, "default_view": "grid", "items_per_page": 12, "auto_download": false}',
+        comment="User preferences stored as JSON.",
     )
-
     name: Mapped[str] = mapped_column(
         String(255),
         nullable=False,

@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { loginSchema, signupSchema } from '@/lib/validations/auth'
 import type { LoginInput, SignupInput } from '@/lib/validations/auth'
+import { cookies } from 'next/headers'
 
 export async function login(data: LoginInput) {
   // Validation côté serveur
@@ -18,7 +19,7 @@ export async function login(data: LoginInput) {
 
   const supabase = await createClient()
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data: authData, error } = await supabase.auth.signInWithPassword({
     email: validatedFields.data.email,
     password: validatedFields.data.password,
   })
@@ -27,6 +28,19 @@ export async function login(data: LoginInput) {
     return {
       error: error.message,
     }
+  }
+
+  // Stocker le token dans un cookie HTTP-only
+  if (authData.session?.access_token) {
+    const cookieStore = await cookies()
+    cookieStore.set('auth-token', authData.session.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 jours
+      path: '/',
+    })
+    console.log('Token stored in cookie')
   }
 
   revalidatePath('/', 'layout')
@@ -78,6 +92,18 @@ export async function signup(data: SignupInput) {
     }
   }
 
+  // 3. Stocker le token dans un cookie HTTP-only si disponible
+  if (authData.session?.access_token) {
+    const cookieStore = await cookies()
+    cookieStore.set('auth-token', authData.session.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 jours
+      path: '/',
+    })
+  }
+
   revalidatePath('/', 'layout')
   redirect('/dashboard')
 }
@@ -91,6 +117,10 @@ export async function signOut() {
     console.error('Erreur de déconnexion:', error)
     return { error: error.message }
   }
+
+  // Supprimer le cookie HTTP-only
+  const cookieStore = await cookies()
+  cookieStore.delete('auth-token')
 
   revalidatePath('/', 'layout')
   redirect('/login')
@@ -123,9 +153,65 @@ export async function getUser() {
     error,
   } = await supabase.auth.getUser()
 
+  console.log('[getUser] User:', user?.email)
+  console.log('[getUser] Error:', error)
+
   if (error || !user) {
+    console.log('[getUser] No user found, attempting to get from session')
+    // Fallback: essayer de récupérer depuis la session
+    const { data: { session } } = await supabase.auth.getSession()
+    console.log('[getUser] Session user:', session?.user?.email)
+    
+    if (session?.user) {
+      // Retourner un objet sérialisable
+      return {
+        id: session.user.id,
+        email: session.user.email,
+        user_metadata: session.user.user_metadata,
+        app_metadata: session.user.app_metadata,
+      }
+    }
     return null
   }
 
+  // Retourner un objet sérialisable au lieu de l'objet User complet
   return user
+}
+
+export async function getAuthToken() {
+  const cookieStore = await cookies()
+  const token = cookieStore.get('auth-token')
+  return token?.value || null
+}
+
+export async function getUserProfile() {
+  const supabase = await createClient()
+  
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+  console.log('User data:', user)
+
+  if (userError || !user) {
+    return null
+  }
+
+  // Récupérer le profil depuis la table "users"
+  const { data: profile, error: profileError } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', user.id)
+    .single()
+
+  console.log('Profile data:', profile)
+  if (profileError) {
+    console.error('Error fetching profile:', profileError)
+    return null
+  }
+
+  return {
+    user,
+    profile,
+  }
 }

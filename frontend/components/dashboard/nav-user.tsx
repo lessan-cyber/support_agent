@@ -29,7 +29,8 @@ import {
     SidebarMenuItem, 
     useSidebar 
 } from "@/components/ui/sidebar"
-
+import { signOut } from "@/app/actions/auth"
+import { useRouter } from "next/navigation"
 
 export function NavUser({
   user,
@@ -38,9 +39,23 @@ export function NavUser({
     name: string
     email: string
     avatar: string
+    avatarColor?: string
   }
 }) {
   const { isMobile } = useSidebar()
+  const router = useRouter()
+
+  const handleSignOut = async () => {
+    await signOut()
+  }
+
+  // Extraire la première lettre du nom ou avatar
+  const getInitial = () => {
+    return (user.avatar || user.name || 'U').charAt(0).toUpperCase()
+  }
+
+  // Couleur par défaut si non fournie
+  const bgColor = user.avatarColor || 'bg-blue-500'
 
   return (
     <SidebarMenu>
@@ -51,15 +66,14 @@ export function NavUser({
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground md:h-8 md:p-0"
             >
-              <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
-              </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
+              <div className={`h-8 w-8 rounded-lg ${bgColor} flex items-center justify-center text-white text-xl font-medium`}>
+                {getInitial()}
+              </div>
+              {/* <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
                 <span className="truncate text-xs">{user.email}</span>
-              </div>
-              <ChevronsUpDown className="ml-auto size-4" />
+              </div> */}
+              {/* <ChevronsUpDown className="ml-auto size-4" /> */}
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -70,10 +84,9 @@ export function NavUser({
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
-                </Avatar>
+                <div className={`h-8 w-8 rounded-lg ${bgColor} flex items-center justify-center text-white font-medium`}>
+                  {getInitial()}
+                </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{user.name}</span>
                   <span className="truncate text-xs">{user.email}</span>
@@ -89,7 +102,12 @@ export function NavUser({
             </DropdownMenuGroup> */}
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                // Rediriger vers la page de compte
+                // dynamically replace the current URL with the account settings page
+
+                router.push('/dashboard/settings/account')
+              }}>
                 <BadgeCheck />
                 Account
               </DropdownMenuItem>
@@ -103,7 +121,9 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={handleSignOut}
+            >
               <LogOut />
               Log out
             </DropdownMenuItem>
