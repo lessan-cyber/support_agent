@@ -9,14 +9,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Send, Bot, User, Clock, Inbox } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-interface Message {
-  id: string
-  content: string
-  sender: "user" | "bot" | "admin"
-  timestamp: Date
-  userName?: string
-}
+import type { Message } from "@/lib/types/chat"
+import { useConversationMessages } from "@/hooks/use-chat-history"
 
 interface ChatViewProps {
   conversationId?: string
@@ -31,37 +25,42 @@ export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
     {
       id: "1",
       content: "Bonjour, j'ai besoin d'aide avec mon compte",
-      sender: "user",
-      timestamp: new Date(Date.now() - 3600000),
-      userName: "Alice Martin"
+      sender_type: "user",
+      created_at: new Date(Date.now() - 3600000).toISOString(),
     },
     {
       id: "2",
       content: "Bonjour ! Je serais ravi de vous aider. Pouvez-vous me décrire votre problème plus en détail ?",
-      sender: "bot",
-      timestamp: new Date(Date.now() - 3500000),
+      sender_type: "bot",
+      created_at: new Date(Date.now() - 3500000).toISOString(),
     },
     {
       id: "3",
       content: "Je n'arrive pas à me connecter, j'ai oublié mon mot de passe",
-      sender: "user",
-      timestamp: new Date(Date.now() - 3400000),
-      userName: "Alice Martin"
+      sender_type: "user",
+      created_at: new Date(Date.now() - 3400000).toISOString(),
     },
     {
       id: "4",
       content: "Je comprends. Pour réinitialiser votre mot de passe, vous pouvez cliquer sur 'Mot de passe oublié' sur la page de connexion.",
-      sender: "bot",
-      timestamp: new Date(Date.now() - 3300000),
+      sender_type: "bot",
+      created_at: new Date(Date.now() - 3300000).toISOString(),
     },
     {
       id: "5",
       content: "Je ne reçois pas l'email de réinitialisation",
-      sender: "user",
-      timestamp: new Date(Date.now() - 3200000),
-      userName: "Alice Martin"
+      sender_type: "user",
+      created_at: new Date(Date.now() - 3200000).toISOString(),
     },
   ])
+
+  const { messages: fetchedMessages, sendMessage } = useConversationMessages(conversationId)
+
+  React.useEffect(() => {
+    if (fetchedMessages) {
+      setMessages(fetchedMessages)
+    }
+  }, [fetchedMessages])
   
   const [inputValue, setInputValue] = React.useState("")
   const scrollAreaRef = React.useRef<HTMLDivElement>(null)
@@ -81,8 +80,8 @@ export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
     const newMessage: Message = {
       id: Date.now().toString(),
       content: inputValue,
-      sender: "admin",
-      timestamp: new Date(),
+      sender_type: "admin",
+      created_at: new Date().toISOString(),
     }
 
     setMessages((prev) => [...prev, newMessage])
@@ -113,7 +112,7 @@ export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
         <div className="flex items-center gap-3">
           <Avatar>
             <AvatarImage src={conversationUser?.avatar} />
-            <AvatarFallback className="bg-gradient-to-br from-cyan-400 to-purple-600 text-white">
+            <AvatarFallback className="bg-linear-to-br from-cyan-400 to-purple-600 text-white">
               {conversationUser?.name?.charAt(0) || "U"}
             </AvatarFallback>
           </Avatar>
@@ -133,9 +132,10 @@ export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
       <ScrollArea className="flex-1 p-6">
         <div className="space-y-4 max-w-4xl mx-auto">
           {messages.map((message) => {
-            const isUser = message.sender === "user"
-            const isBot = message.sender === "bot"
-            const isAdmin = message.sender === "admin"
+            const isUser = message.sender_type === "user"
+            const isBot = message.sender_type === "bot"
+            const isAdmin = message.sender_type === "admin"
+            const messageDate = new Date(message.created_at)
 
             return (
               <div
@@ -159,7 +159,7 @@ export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
                           : "bg-gradient-to-br from-cyan-400 to-purple-600",
                         "text-white"
                       )}>
-                        {isAdmin ? "A" : (message.userName?.charAt(0) || "U")}
+                        {isAdmin ? "A" : (message.sender_type?.charAt(0) || "U")}
                       </AvatarFallback>
                     </Avatar>
                   )}
@@ -172,10 +172,10 @@ export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
                 )}>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     {isBot && <span className="font-medium">Bot Assistant</span>}
-                    {isUser && <span className="font-medium">{message.userName}</span>}
+                    {isUser && <span className="font-medium">User</span>}
                     {isAdmin && <span className="font-medium">You (Admin)</span>}
                     <span>
-                      {message.timestamp.toLocaleTimeString([], { 
+                      {messageDate.toLocaleTimeString([], { 
                         hour: '2-digit', 
                         minute: '2-digit' 
                       })}

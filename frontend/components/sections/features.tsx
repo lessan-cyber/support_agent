@@ -26,84 +26,106 @@ export default function Features() {
         }
     }, []);
 
-    const cards = [
-        {
-            id: 1,
-            title: "Build multi-step agents calling custom tools",
-            description:
-                "Create agentic systems on a single screen. Integrate any LLM into your workflows as fast as you can drag-n-drop.",
-            buttonText: "Explore AI",
-            features: [
-                // "Update Detected",
-                // "Running Custom Unit Testing",
-                // "Update Rolled Back Automatically",
-                // "IT Team Notified of New Ticket",
-                // "Custom Unit Testing Failed",
-                // "Update Installed"
-            ],
-        },
-        {
-            id: 2,
-            title: "Chat with your own data",
-            description:
-                "Use Slack, Teams, SMS, voice, or our embedded chat interface to get accurate answers from your data, create tasks, and complete workflows.",
-            buttonText: "Try Chat",
-            features: [],
-        },
-        {
-            id: 3,
-            title: "Self-host everything – including AI models",
-            description: "Protect your data by deploying on-prem.",
-            buttonText: "Deploy Now",
-            features: [
-                "Deploy with Docker",
-                "Access the entire source code on Github",
-            ],
-        },
-        {
-            id: 4,
-            title: "Self-host everything – including AI models",
-            description: "Protect your data by deploying on-prem.",
-            buttonText: "Deploy Now",
-            features: [
-                "Deploy with Docker",
-                "Access the entire source code on Github",
-            ],
-        },
-        {
-            id: 5,
-            title: "Self-host everything – including AI models",
-            description: "Protect your data by deploying on-prem.",
-            buttonText: "Deploy Now",
-            features: [
-                "Deploy with Docker",
-                "Access the entire source code on Github",
-            ],
-        },
-    ];
+  const cards = [
+    {
+      id: 1,
+      title: "Build multi-step agents calling custom tools",
+      description: "Create agentic systems on a single screen. Integrate any LLM into your workflows as fast as you can drag-n-drop.",
+      buttonText: "Explore AI",
+      features: [
+        // "Update Detected",
+        // "Running Custom Unit Testing",
+        // "Update Rolled Back Automatically",
+        // "IT Team Notified of New Ticket",
+        // "Custom Unit Testing Failed",
+        // "Update Installed"
+      ]
+    },
+    {
+      id: 2,
+      title: "Chat with your own data",
+      description: "Use Slack, Teams, SMS, voice, or our embedded chat interface to get accurate answers from your data, create tasks, and complete workflows.",
+      buttonText: "Try Chat",
+      features: []
+    },
+    {
+      id: 3,
+      title: "Self-host everything – including AI models",
+      description: "Protect your data by deploying on-prem.",
+      buttonText: "Deploy Now",
+      features: [
+        "Deploy with Docker",
+        "Access the entire source code on Github"
+      ]
+    },
+    {
+      id: 4,
+      title: "Self-host everything – including AI models",
+      description: "Protect your data by deploying on-prem.",
+      buttonText: "Deploy Now",
+      features: [
+        "Deploy with Docker",
+        "Access the entire source code on Github"
+      ]
+    },
+    {
+      id: 5,
+      title: "Self-host everything – including AI models",
+      description: "Protect your data by deploying on-prem.",
+      buttonText: "Deploy Now",
+      features: [
+        "Deploy with Docker",
+        "Access the entire source code on Github",
+      ]
+    }
+  ];
 
-    return (
-        <div className="min-h-screen bg-background text-primary relative overflow-hidden">
-            {/* Background gradient effect */}
+  return (
+    <div className="min-h-screen bg-background text-primary relative overflow-hidden">
+      {/* Background gradient effect */}
+      <div 
+        ref={containerRef}
+        className="relative min-h-screen"
+        style={{
+          background: hoveredCard !== null ? 
+            `radial-gradient(circle 600px at ${mousePosition.x}px ${mousePosition.y}px, rgba(59, 130, 246, 0.15), transparent 70%)` :
+            'transparent'
+        }}
+      >
+        {/* Header */}
+        <div className="text-center pt-20 pb-16">
+          <h1 className="text-5xl md:text-6xl font-bold mb-4 text-primary">
+            The fast way to actually
+          </h1>
+          <h2 className="text-5xl md:text-6xl font-bold text-orange-400">
+            get AI working in your business
+          </h2>
+        </div>
+
+        {/* Cards Grid */}
+        <div className="max-w-7xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+          {cards.map((card, index) => (
             <div
-                ref={containerRef}
-                className="relative min-h-screen"
-                style={{
-                    background:
-                        hoveredCard !== null
-                            ? `radial-gradient(circle 600px at ${mousePosition.x}px ${mousePosition.y}px, rgba(59, 130, 246, 0.15), transparent 70%)`
-                            : "transparent",
-                }}
+              key={card.id}
+              className={`relative bg-card backdrop-blur-sm border border-gray-700/50 rounded-2xl p-8 transition-all duration-300 hover:border-gray-600/70 ${
+                index === 0 ? 'xl:col-span-1' : ''
+              } ${
+                index === 1 ? 'xl:col-span-1' : ''
+              } ${
+                index === 2 ? 'xl:col-span-1 xl:col-start-1 xl:row-start-2 xl:col-span-2' : ''
+              }`}
+              onMouseEnter={() => setHoveredCard(card.id)}
+              onMouseLeave={() => setHoveredCard(null)}
             >
-                {/* Header */}
-                <div className="text-center pt-20 pb-16">
-                    <h1 className="text-5xl md:text-6xl font-bold mb-4 text-primary">
-                        The fast way to actually
-                    </h1>
-                    <h2 className="text-5xl md:text-6xl font-bold text-orange-400">
-                        get AI working in your business
-                    </h2>
-                </div>
+              {/* Card Content */}
+              <div className="relative z-10">
+                <h3 className="text-2xl font-bold mb-4 leading-tight">
+                  {card.title}
+                </h3>
+                
+                <p className="text-muted-foreground mb-6 leading-relaxed">
+                  {card.description}
+                </p>
 
                 {/* Cards Grid */}
                 <div className="max-w-7xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
@@ -126,9 +148,32 @@ export default function Features() {
                                     {card.title}
                                 </h3>
 
-                                <p className="text-muted-foreground mb-6 leading-relaxed">
-                                    {card.description}
-                                </p>
+                {/* Features for third card */}
+                {card.id === 3 && (
+                  <div className="mb-6 space-y-3">
+                    {card.features.map((feature, idx) => (
+                      <div key={idx} className="flex items-center text-gray-300">
+                        <svg className="w-5 h-5 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        {feature}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Features for third card */}
+                {card.id === 5 && (
+                  <div className="mb-6 space-y-3">
+                    {card.features.map((feature, idx) => (
+                      <div key={idx} className="flex items-center text-gray-300">
+                        <svg className="w-5 h-5 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        {feature}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                                 {/* Features list for first card */}
                                 {card.id === 1 && (
