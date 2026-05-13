@@ -3,6 +3,7 @@
 // get messageId from url params and display it in the page
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+import { createClient } from "@/utils/supabase/client"
 import { MessageComponent } from "@/components/dashboard/message";
 
 interface MessageData {
@@ -24,8 +25,22 @@ export default function Message() {
         }
         const fetchMessage = async () => {
             try {
+                const supabase = createClient()
+                const { data: session } = await supabase.auth.getSession()
+                const token = session?.session?.access_token
+                if (!token) {
+                    router.push("/dashboard/inbox")
+                    return
+                }
+
                 const response = await fetch(
-                    `/api/v1/admin/conversations/${messageId}/messages`
+                    `/api/v1/admin/conversations/${messageId}/messages`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            "Content-Type": "application/json",
+                        },
+                    }
                 )
                 if (!response.ok) throw new Error("Not found")
                 const data = await response.json()

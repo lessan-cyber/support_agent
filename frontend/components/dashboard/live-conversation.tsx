@@ -1,10 +1,9 @@
 "use client";
-
 import { useState, useEffect } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { createClient } from "@/utils/supabase/client";
-
+import type { Message } from "@/lib/types/chat";
 interface LiveConversationProps {
     ticketId?: string;
     onTakeOver?: () => void;

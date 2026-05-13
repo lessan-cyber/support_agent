@@ -201,11 +201,12 @@ export function InboxSidebar({
                                     return (
                                         <button
                                             key={conv.ticketId}
-                                            onClick={() =>
+                                            onClick={() => {
+                                                onConversationSelect?.(conv.ticketId)
                                                 router.push(
                                                     `/dashboard/inbox/?conversation=${encodeURIComponent(conv.ticketId)}`,
                                                 )
-                                            }
+                                            }}
                                             className={cn(
                                                 "w-full flex items-start gap-3 p-4 border-b transition-colors text-left",
                                                 "hover:bg-accent",
