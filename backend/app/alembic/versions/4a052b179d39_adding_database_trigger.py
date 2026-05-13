@@ -8,9 +8,8 @@ Create Date: 2025-11-30 18:34:09.608237
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "4a052b179d39"
@@ -21,21 +20,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Check if index exists before creating (it may have been created in a previous migration)
-    op.execute("""
-        DO $$
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM pg_indexes WHERE indexname = 'idx_documents_embedding_hnsw'
-            ) THEN
-                CREATE INDEX idx_documents_embedding_hnsw
-                ON documents
-                USING hnsw (embedding vector_cosine_ops)
-                WITH (m = 16, ef_construction = 64);
-            END IF;
-        END $$;
-    """)
-
     # Add the email column to the users table
     op.add_column(
         "users",
