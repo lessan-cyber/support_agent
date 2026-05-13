@@ -78,8 +78,13 @@ export async function signup(data: SignupInput) {
     }
   }
 
+  if (authData.session) {
+    revalidatePath('/', 'layout')
+    redirect('/dashboard')
+  }
+
   revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  redirect('/login')
 }
 
 export async function signOut() {
