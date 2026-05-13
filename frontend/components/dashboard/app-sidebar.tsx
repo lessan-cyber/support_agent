@@ -152,7 +152,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     // Afficher le contenu uniquement après le chargement
     const isReady = !loading;
 
-    const [showMenu, setShowMenu] = React.useState(false);
     const [isPending, startTransition] = React.useTransition();
 
     // React.useEffect(() => {
