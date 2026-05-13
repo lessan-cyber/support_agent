@@ -23,6 +23,9 @@ export default function Message() {
             router.push("/dashboard/inbox")
             return
         }
+        const controller = new AbortController()
+        let active = true
+
         const fetchMessage = async () => {
             setMessage(null)
             setLoading(true)
@@ -42,10 +45,12 @@ export default function Message() {
                             Authorization: `Bearer ${token}`,
                             "Content-Type": "application/json",
                         },
+                        signal: controller.signal,
                     }
                 )
                 if (!response.ok) throw new Error("Not found")
                 const data = await response.json()
+                if (!active) return
                 if (data.messages?.length) {
                     const msg = data.messages[0]
                     setMessage({
@@ -58,12 +63,17 @@ export default function Message() {
                     return
                 }
             } catch {
+                if (!active) return
                 router.push("/dashboard/inbox")
             } finally {
-                setLoading(false)
+                if (active) setLoading(false)
             }
         }
         fetchMessage()
+        return () => {
+            active = false
+            controller.abort()
+        }
     }, [messageId, router])
 
     if (loading) return <div className="p-4 text-sm text-muted-foreground">Loading...</div>
