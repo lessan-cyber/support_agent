@@ -302,28 +302,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse" />
                             <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
                         </div>
-                    ) : currentUser ? (
-                        <NavUser
-                            user={
-                                {
-                                    name:
-                                        currentUser.user_metadata?.name ||
-                                        currentUser.email?.split("@")[0] ||
-                                        "User",
+                    ) : currentUser ? (() => {
+                        const displayName = currentUser.user_metadata?.name || currentUser.email?.split("@")[0] || "User";
+                        const avatarLabel = currentUser.user_metadata?.name || currentUser.email?.split("@")[0] || "U";
+                        return (
+                            <NavUser
+                                user={{
+                                    name: displayName,
                                     email: currentUser.email || "",
-                                    avatar:
-                                        currentUser.user_metadata?.name ||
-                                        currentUser.email?.split("@")[0] ||
-                                        "U",
-                                    avatarColor: getAvatarColor(
-                                        currentUser.user_metadata?.name ||
-                                            currentUser.email?.split("@")[0] ||
-                                            "U",
-                                    ),
-                                } as any
-                            }
-                        />
-                    ) : (
+                                    avatar: avatarLabel,
+                                    avatarColor: getAvatarColor(avatarLabel),
+                                }}
+                            />
+                        );
+                    })() : (
                         <div>Non connecté</div>
                     )}
                 </SidebarFooter>
