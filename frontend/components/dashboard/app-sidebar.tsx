@@ -62,7 +62,7 @@ const data = {
             isActive: false,
         },
         {
-            title: "settings",
+            title: "Settings",
             url: "/dashboard/settings",
             icon: Settings,
             isActive: false,
