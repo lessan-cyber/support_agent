@@ -1,7 +1,8 @@
 """Pydantic schemas for tenant-related operations."""
 
 import re
-from typing import List, Optional
+from typing import List
+from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -33,13 +34,14 @@ class AllowedDomainResponse(AllowedDomainBase):
 class AllowedDomainsListResponse(BaseModel):
     """Schema for listing allowed domains."""
 
-    tenant_id: str = Field(..., description="Tenant ID")
+    tenant_id: UUID = Field(..., description="Tenant ID")
     domains: List[str] = Field(..., description="List of allowed domains")
     count: int = Field(..., description="Total count of allowed domains")
 
 
 class AllowedDomainUpdateRequest(BaseModel):
     """Schema for updating an existing domain."""
+
     old_domain: str = Field(..., description="Existing domain to be replaced")
     new_domain: str = Field(..., description="New domain to replace the old one")
 
