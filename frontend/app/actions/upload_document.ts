@@ -252,8 +252,8 @@ export async function updateDocument(
     if (sanitized.length > 255) {
       throw new Error('Invalid filename')
     }
-    if (!/^[a-zA-Z0-9 _.\-]+$/.test(sanitized)) {
-      throw new Error('Invalid filename')
+    if (!/^[^\x00-\x1F\\\/:?*"<>|]+$/u.test(sanitized)) {
+      throw new Error('Invalid filename: must not contain control characters or \\ / : ? * " < > |')
     }
     data.filename = sanitized
   }
