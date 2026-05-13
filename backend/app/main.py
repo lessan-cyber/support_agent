@@ -12,6 +12,7 @@ from app.agent import constructor as agent_constructor
 from app.api.v1 import admin as admin_router
 from app.api.v1 import chat as chat_router
 from app.api.v1 import documents as documents_router
+from app.api.v1 import profile as profile_router
 from app.config.redis import check_redis_connection
 from app.config.supabase import check_supabase_connection
 from app.services.cache import semantic_cache
@@ -113,6 +114,7 @@ app.include_router(
     documents_router.router, prefix="/api/v1/documents", tags=["Documents"]
 )
 app.include_router(chat_router.router, prefix="/api/v1/chat", tags=["Chat"])
+app.include_router(profile_router.router, prefix="/api/v1/profile", tags=["Profile"])
 
 
 @app.get("/")

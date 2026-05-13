@@ -94,7 +94,6 @@ export default function AccountPage() {
   const { theme, setTheme } = useTheme()
   const { user, profile, loading: userLoading } = useUser()
   const [saving, setSaving] = useState(false)
-  const [hasChanges, setHasChanges] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   const [preferences, setPreferences] = useState<AccountPreferences>({
@@ -102,6 +101,11 @@ export default function AccountPage() {
     timezone: "UTC",
     email_notifications: true,
   })
+  const [savedPreferences, setSavedPreferences] = useState<AccountPreferences>(preferences)
+
+  const hasChanges = preferences.language !== savedPreferences.language ||
+    preferences.timezone !== savedPreferences.timezone ||
+    preferences.email_notifications !== savedPreferences.email_notifications
 
   useEffect(() => {
     setMounted(true)
@@ -109,17 +113,18 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (profile?.preferences) {
-      setPreferences({
+      const merged: AccountPreferences = {
         language: profile.preferences.language || "en",
         timezone: profile.preferences.timezone || "UTC",
         email_notifications: profile.preferences.email_notifications ?? true,
-      })
+      }
+      setPreferences(merged)
+      setSavedPreferences(merged)
     }
   }, [profile])
 
   const handleChange = (field: keyof AccountPreferences, value: any) => {
     setPreferences((prev) => ({ ...prev, [field]: value }))
-    setHasChanges(true)
   }
 
   const handleSave = async () => {
@@ -139,8 +144,8 @@ export default function AccountPage() {
 
       if (!response.ok) throw new Error("Failed to update preferences")
 
+      setSavedPreferences({ ...preferences })
       toast.success("Your account preferences have been updated.", { position: "top-right" })
-      setHasChanges(false)
     } catch (error) {
       toast.error("Failed to update preferences. Please try again.", { position: "top-right" })
     } finally {
@@ -279,14 +284,7 @@ export default function AccountPage() {
           <Button
             variant="outline"
             onClick={() => {
-              if (profile?.preferences) {
-                setPreferences({
-                  language: profile.preferences.language || "en",
-                  timezone: profile.preferences.timezone || "UTC",
-                  email_notifications: profile.preferences.email_notifications ?? true,
-                })
-              }
-              setHasChanges(false)
+              setPreferences({ ...savedPreferences })
             }}
           >
             Cancel
