@@ -1,19 +1,24 @@
-"use client"
+"use client";
 
 import {
-  BadgeCheck,
-  Bell,
-  ChevronsUpDown,
-  CreditCard,
-  LogOut,
-  Sparkles,
-} from "lucide-react"
+    BadgeCheck,
+    Bell,
+    ChevronsUpDown,
+    CreditCard,
+    LogOut,
+    Sparkles,
+} from "lucide-react";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,7 +38,7 @@ import { signOut } from "@/app/actions/auth"
 import { useRouter } from "next/navigation"
 
 export function NavUser({
-  user,
+    user,
 }: {
   user: {
     name: string

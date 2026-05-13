@@ -6,6 +6,12 @@ import { useSearchParams } from "next/dist/client/components/navigation"
 import { useEffect } from "react"
 import { MessageComponent } from "@/components/dashboard/message";
 
+interface MessageData {
+  user: { name: string; email: string; avatar: string };
+  content: string;
+  date: string;
+}
+
 export default function Message() {
     const searchParams = useSearchParams()
     const messageId = searchParams.get('messageId')
@@ -17,6 +23,6 @@ export default function Message() {
         }
     }, [messageId, router])
     return <div>
-        <MessageComponent user={{name: "John Doe", email: "john.doe@example.com", avatar: "/avatars/01.png"}} content="This is a sample message." date="2023-10-15" />
+        <MessageComponent user={message.user} content={message.content} date={message.date} />
     </div>
 }

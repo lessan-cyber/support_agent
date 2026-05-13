@@ -77,8 +77,11 @@ export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
   const handleSendMessage = () => {
     if (!inputValue.trim()) return
 
+    const id = Date.now().toString()
+    localIdsRef.current.add(id)
+
     const newMessage: Message = {
-      id: Date.now().toString(),
+      id,
       content: inputValue,
       sender_type: "admin",
       created_at: new Date().toISOString(),

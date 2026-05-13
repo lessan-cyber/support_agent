@@ -1,5 +1,5 @@
 // app/dashboard/inbox/layout.tsx
-'use client'
+"use client";
 
 import { useState } from "react"
 import { InboxSidebar } from "@/components/dashboard/inbox-sidebar"

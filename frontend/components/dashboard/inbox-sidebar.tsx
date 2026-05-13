@@ -1,15 +1,15 @@
 // components/dashboard/inbox-sidebar.tsx
-"use client"
+"use client";
 
-import * as React from "react"
+import * as React from "react";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarHeader,
-  SidebarInput,
-} from "@/components/ui/sidebar"
+    Sidebar,
+    SidebarContent,
+    SidebarGroup,
+    SidebarGroupContent,
+    SidebarHeader,
+    SidebarInput,
+} from "@/components/ui/sidebar";
 import {
   Select,
   SelectContent,
@@ -72,20 +72,24 @@ const conversations: Conversation[] = [
 ]
 
 const statusConfig = {
-  open: { label: "Open", icon: Inbox, color: "bg-green-500" },
-  pending_human: { label: "Pending Human", icon: UserCheck, color: "bg-orange-500" },
-  all: { label: "All", icon: Clock, color: "bg-blue-500" },
-}
+    open: { label: "Open", icon: Inbox, color: "bg-green-500" },
+    pending_human: {
+        label: "Pending Human",
+        icon: UserCheck,
+        color: "bg-orange-500",
+    },
+    all: { label: "All", icon: Clock, color: "bg-blue-500" },
+};
 
 interface InboxSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  onConversationSelect?: (conversationId: string) => void
-  selectedConversationId?: string
+    onConversationSelect?: (conversationId: string) => void;
+    selectedConversationId?: string;
 }
 
-export function InboxSidebar({ 
-  onConversationSelect, 
-  selectedConversationId,
-  ...props 
+export function InboxSidebar({
+    onConversationSelect,
+    selectedConversationId,
+    ...props
 }: InboxSidebarProps) {
   const [filter, setFilter] = React.useState<ConversationStatus>("all")
   const [search, setSearch] = React.useState("")

@@ -1,9 +1,7 @@
 // components/dashboard/nav-sidebar.tsx
-"use client"
+"use client";
 
-import * as React from "react"
-import { ArchiveX, FileInput, File, Inbox, Send, Trash2, Plus } from "lucide-react"
-import { NavUser } from "@/components/dashboard/nav-user"
+import * as React from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -30,38 +28,14 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   } | null
 }
 
-const navItems = [
-  {
-    title: "Inbox",
-    url: "/dashboard/inbox/messages",
-    icon: Inbox,
-  },
-  {
-    title: "Drafts",
-    url: "/dashboard/inbox/drafts",
-    icon: File,
-  },
-  {
-    title: "Sent",
-    url: "/dashboard/inbox/sent",
-    icon: Send,
-  },
-  {
-    title: "Junk",
-    url: "/dashboard/junk",
-    icon: ArchiveX,
-  },
-  {
-    title: "Trash",
-    url: "/dashboard/trash",
-    icon: Trash2,
-  },
-  {
-    title: "All Documents",
-    icon: FileInput,
-    url: "/dashboard/documents",
-  },
-]
+// user interface
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+    user: {
+        id: string;
+        email?: string | null;
+        user_metadata?: Record<string, any>;
+    } | null;
+}
 
 export function NavSidebar({ user, ...props }: AppSidebarProps) {
   const pathname = usePathname()
@@ -149,26 +123,29 @@ export function NavSidebar({ user, ...props }: AppSidebarProps) {
                 </Dialog>
               </SidebarMenuItem>
 
-              {/* Navigation items */}
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    tooltip={{ children: item.title, hidden: false }}
-                    asChild
-                    isActive={pathname === item.url}
-                    className="px-2.5 md:px-2"
-                  >
-                    <Link href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
+                            {/* Navigation items */}
+                            {navItems.map((item) => (
+                                <SidebarMenuItem key={item.title}>
+                                    <SidebarMenuButton
+                                        tooltip={{
+                                            children: item.title,
+                                            hidden: false,
+                                        }}
+                                        asChild
+                                        isActive={pathname === item.url}
+                                        className="px-2.5 md:px-2"
+                                    >
+                                        <Link href={item.url}>
+                                            <item.icon />
+                                            <span>{item.title}</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            ))}
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
+            </SidebarContent>
 
       <SidebarFooter>
       {user ? (
