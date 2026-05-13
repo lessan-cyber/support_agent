@@ -40,15 +40,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { formatDistanceToNow } from "date-fns"
-
-interface Document {
-  id: string
-  filename: string
-  size: number
-  uploaded_at: string
-  url: string
-}
+import { Document, formatFileSize, formatDate } from "@/lib/document-utils"
 
 interface DocumentCardProps {
   document: Document
@@ -70,26 +62,21 @@ export function DocumentCard({
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false)
   const [showRenameDialog, setShowRenameDialog] = React.useState(false)
   const [newName, setNewName] = React.useState(document.filename)
+  const [nameError, setNameError] = React.useState(false)
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + " B"
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB"
-    return (bytes / (1024 * 1024)).toFixed(2) + " MB"
-  }
+  React.useEffect(() => {
+    setNewName(document.filename)
+  }, [document.filename])
 
   const handleRename = () => {
-    if (newName && newName !== document.filename) {
-      onRename(document.id, newName)
+    const trimmed = newName.trim()
+    if (!trimmed || trimmed === document.filename) {
+      setNameError(true)
+      return
     }
+    setNameError(false)
+    onRename(document.id, trimmed)
     setShowRenameDialog(false)
-  }
-
-  const formatDate = (date: string) => {
-    try {
-      return formatDistanceToNow(new Date(date), { addSuffix: true })
-    } catch {
-      return "Recently"
-    }
   }
 
   return (
@@ -129,7 +116,7 @@ export function DocumentCard({
                     <Download className="mr-2 h-4 w-4" />
                     Download
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowRenameDialog(true)}>
+                  <DropdownMenuItem onClick={() => { setNameError(false); setShowRenameDialog(true) }}>
                     <Edit className="mr-2 h-4 w-4" />
                     Rename
                   </DropdownMenuItem>
@@ -196,16 +183,18 @@ export function DocumentCard({
               <Input
                 id="filename"
                 value={newName}
-                onChange={(e) => setNewName(e.target.value)}
+                onChange={(e) => { setNewName(e.target.value); setNameError(false) }}
+                onKeyDown={(e) => { if (e.key === "Enter") handleRename() }}
                 placeholder="Enter new filename"
               />
+              {nameError && <p className="text-xs text-destructive">Filename cannot be empty or unchanged</p>}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowRenameDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleRename}>Rename</Button>
+            <Button onClick={handleRename} disabled={!newName.trim() || newName.trim() === document.filename}>Rename</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

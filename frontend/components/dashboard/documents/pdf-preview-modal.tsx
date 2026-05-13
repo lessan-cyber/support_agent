@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
 
 interface Document {
   id: string
@@ -26,23 +27,24 @@ interface PdfPreviewModalProps {
 
 export function PdfPreviewModal({ document, onClose }: PdfPreviewModalProps) {
   const [isFullscreen, setIsFullscreen] = React.useState(false)
+  const [isDownloading, setIsDownloading] = React.useState(false)
 
   if (!document) return null
 
   const handleDownload = async () => {
+    setIsDownloading(true)
     try {
-      const response = await fetch(document.url)
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
       const a = window.document.createElement("a")
-      a.href = url
+      a.href = document.url
       a.download = document.filename
       window.document.body.appendChild(a)
       a.click()
-      window.URL.revokeObjectURL(url)
       window.document.body.removeChild(a)
     } catch (error) {
       console.error("Download failed:", error)
+      toast.error("Download failed. Please try again.")
+    } finally {
+      setIsDownloading(false)
     }
   }
 
@@ -60,7 +62,8 @@ export function PdfPreviewModal({ document, onClose }: PdfPreviewModalProps) {
               variant="ghost"
               size="icon"
               onClick={handleDownload}
-              title="Download"
+              disabled={isDownloading}
+              aria-label="Download"
             >
               <Download className="h-4 w-4" />
             </Button>
