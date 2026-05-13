@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -12,6 +13,7 @@ from app.agent import constructor as agent_constructor
 from app.api.v1 import admin as admin_router
 from app.api.v1 import chat as chat_router
 from app.api.v1 import documents as documents_router
+from app.api.v1 import profile as profile_router
 from app.config.redis import check_redis_connection
 from app.config.supabase import check_supabase_connection
 from app.services.cache import semantic_cache
@@ -62,6 +64,14 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 class ConditionalGZipMiddleware:
     def __init__(
@@ -78,15 +88,10 @@ class ConditionalGZipMiddleware:
         )
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        # Check if this is a request that should not be compressed
-        should_skip_compression = False
-
-        # Skip compression for SSE endpoints
-        if scope["path"] == "/api/v1/chat/stream":
-            should_skip_compression = True
-
-        # Skip compression if response headers indicate SSE
-        # We need to wrap the send function to check headers
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        should_skip_compression = scope.get("path") == "/api/v1/chat/stream"
         if not should_skip_compression:
             # Use the gzip middleware for non-SSE responses
             await self.gzip_middleware(scope, receive, send)
@@ -113,6 +118,7 @@ app.include_router(
     documents_router.router, prefix="/api/v1/documents", tags=["Documents"]
 )
 app.include_router(chat_router.router, prefix="/api/v1/chat", tags=["Chat"])
+app.include_router(profile_router.router, prefix="/api/v1/profile", tags=["Profile"])
 
 
 @app.get("/")

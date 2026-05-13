@@ -54,24 +54,11 @@ export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
     },
   ])
 
-  const localIdsRef = React.useRef<Set<string>>(new Set())
-
   const { messages: fetchedMessages, sendMessage } = useConversationMessages(conversationId)
 
   React.useEffect(() => {
     if (fetchedMessages) {
-      setMessages((prev) => {
-        const localIds = localIdsRef.current
-        const fetchedById = new Map(fetchedMessages.map((m) => [m.id, m]))
-        const merged = prev.filter((m) => localIds.has(m.id) || !fetchedById.has(m.id))
-        for (const msg of fetchedMessages) {
-          if (!localIds.has(msg.id)) {
-            merged.push(msg)
-          }
-        }
-        merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        return merged
-      })
+      setMessages(fetchedMessages)
     }
   }, [fetchedMessages])
   

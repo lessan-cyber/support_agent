@@ -17,23 +17,26 @@ import { NavUser } from "@/components/dashboard/nav-user";
 import { getAvatarColor } from "@/lib/utils/avatar.utils";
 import { Label } from "@/components/ui/label";
 import {
-    Sidebar,
-    SidebarContent,
-    SidebarFooter,
-    SidebarGroup,
-    SidebarGroupContent,
-    SidebarHeader,
-    SidebarInput,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-    useSidebar,
-} from "@/components/ui/sidebar";
-import { Switch } from "@/components/ui/switch";
-import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
-import { useUser } from "@/hooks/use-user";
-import { signOut } from "@/app/actions/auth";
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarInput,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "@/components/ui/sidebar"
+import { Switch } from "@/components/ui/switch"
+import Link from "next/link"
+import { useRouter } from "next/navigation";
+import { useUser } from "@/hooks/use-user"
+import { signOut } from "@/app/actions/auth"
+
+
+
 
 // This is sample data
 const data = {
@@ -137,33 +140,44 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const router = useRouter();
     const pathname = usePathname();
 
-    const [activeItem, setActiveItem] = React.useState(() => {
-        const match = data.navMain.find((item) => pathname.startsWith(item.url))
-        return match || data.navMain[0]
-    });
-
-    React.useEffect(() => {
-        const match = data.navMain.find((item) => pathname.startsWith(item.url))
-        if (match) setActiveItem(match)
-    }, [pathname])
-
     // Renomme lors de la destructuration
-    const { user: currentUser, profile, loading } = useUser();
-    // Afficher le contenu uniquement après le chargement
-    const isReady = !loading;
+  const { user: currentUser, profile, loading } = useUser()
+  // Afficher le contenu uniquement après le chargement
+  const isReady = !loading
 
-    const [isPending, startTransition] = React.useTransition();
-
+    const [showMenu, setShowMenu] = React.useState(false)
+    const [isPending, startTransition] = React.useTransition()
+  
     // React.useEffect(() => {
     //   console.log('[AppSidebar] State:', { loading, userExists: !!user, userName: user?.email })
     //   console.log('[AppSidebar] Full user object:', user)
     // }, [loading, user])
 
     const handleSignOut = () => {
-        startTransition(async () => {
-            await signOut();
-        });
-    };
+      startTransition(async () => {
+        await signOut()
+      })
+    }
+
+    // Générer une couleur basée sur la première lettre du nom
+    const getAvatarColor = (name: string) => {
+      if (!name) return 'bg-gray-400'
+      const firstLetter = name.charAt(0).toUpperCase()
+      const charCode = firstLetter.charCodeAt(0)
+      const colors = [
+        'bg-red-500',
+        'bg-orange-500',
+        'bg-yellow-500',
+        'bg-green-500',
+        'bg-blue-500',
+        'bg-indigo-500',
+        'bg-purple-500',
+        'bg-pink-500',
+      ]
+      return colors[charCode % colors.length]
+    }
+  
+    
 
     return (
         <Sidebar
@@ -264,62 +278,57 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     <span>{files.addedfiles.title}</span>
                     </SidebarMenuButton>
                 </SidebarMenuItem> */}
-                            </SidebarMenu>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
-                    <SidebarGroup>
-                        <SidebarGroupContent className="px-1.5 md:px-0">
-                            <SidebarMenu>
-                                {data.navMain.map((item) => (
-                                    <SidebarMenuItem key={item.title}>
-                                        <SidebarMenuButton
-                                            tooltip={{
-                                                children: item.title,
-                                                hidden: false,
-                                            }}
-                                            onClick={() => {
-                                                setActiveItem(item);
-                                                setOpen(true);
-                                                router.push(item.url);
-                                            }}
-                                            isActive={
-                                                activeItem?.title === item.title
-                                            }
-                                            className="px-2.5 md:px-2"
-                                        >
-                                            <item.icon />
-                                            <span>{item.title}</span>
-                                        </SidebarMenuButton>
-                                    </SidebarMenuItem>
-                                ))}
-                            </SidebarMenu>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
-                </SidebarContent>
-                <SidebarFooter>
-                    {!isReady ? (
-                        <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse" />
-                            <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
-                        </div>
-                    ) : currentUser ? (() => {
-                        const displayName = currentUser.user_metadata?.name || currentUser.email?.split("@")[0] || "User";
-                        const avatarLabel = currentUser.user_metadata?.name || currentUser.email?.split("@")[0] || "U";
-                        return (
-                            <NavUser
-                                user={{
-                                    name: displayName,
-                                    email: currentUser.email || "",
-                                    avatar: avatarLabel,
-                                    avatarColor: getAvatarColor(avatarLabel),
-                                }}
-                            />
-                        );
-                    })() : (
-                        <div>Non connecté</div>
-                    )}
-                </SidebarFooter>
-            </Sidebar>
-        </Sidebar>
-    );
+                </SidebarMenu>
+            </SidebarGroupContent>
+            </SidebarGroup>
+          <SidebarGroup>
+            <SidebarGroupContent className="px-1.5 md:px-0">
+              <SidebarMenu>
+                {data.navMain.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      tooltip={{
+                        children: item.title,
+                        hidden: false,
+                      }}
+                      onClick={() => {
+                        setActiveItem(item)
+                        setOpen(true)
+                        router.push(item.url);
+                      }}
+                      isActive={activeItem?.title === item.title}
+                      className="px-2.5 md:px-2"
+                    >
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+        <SidebarFooter>
+          {!isReady ? (
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse" />
+              <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+            </div>
+          ) : currentUser ? (
+            <NavUser
+              user={{
+                name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User',
+                email: currentUser.email || '',
+                avatar: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'U',
+                avatarColor: getAvatarColor(currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'U'),
+              } as any}
+            />
+          ) : (
+            <div>Non connecté</div>
+          )}
+            </SidebarFooter>
+      </Sidebar>
+
+    </Sidebar>
+  )
 }
