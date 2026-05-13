@@ -18,6 +18,13 @@ class UserRole(enum.Enum):
     AGENT = "agent"
 
 
+USER_PREFERENCES_DEFAULTS = {
+    "language": "en",
+    "timezone": "UTC",
+    "email_notifications": True,
+}
+
+
 class User(BaseModel, TimestampMixin):
     __tablename__ = "users"
 
