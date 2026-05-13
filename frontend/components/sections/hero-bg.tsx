@@ -1,9 +1,12 @@
 import React from "react";
 import Hero from "./hero";
 
-
-export const HeroBackground = ({content}: {content?: React.ReactNode}): React.ReactNode => {
-    return(
+export const HeroBackground = ({
+    content,
+}: {
+    content?: React.ReactNode;
+}): React.ReactNode => {
+    return (
         <div className="min-h-screen w-full bg-linear-to-b from-slate-50 to-white dark:from-[#020617] dark:to-[#0f172a] relative overflow-x-hidden transition-colors duration-300">
         {/* Light Mode Background */}
         <div
@@ -44,4 +47,4 @@ export const HeroBackground = ({content}: {content?: React.ReactNode}): React.Re
         </div>
         </div>
     );
-}
+};
