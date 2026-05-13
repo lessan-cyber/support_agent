@@ -21,15 +21,22 @@ def upgrade() -> None:
     """Upgrade schema."""
     op.execute("ALTER TABLE alembic_version ENABLE ROW LEVEL SECURITY")
     op.execute("""
-        CREATE POLICY admin_only ON alembic_version
-        FOR ALL
-        USING (current_setting('role', true) = 'service_role')
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_policies WHERE tablename = 'alembic_version' AND policyname = 'admin_only'
+            ) THEN
+                CREATE POLICY admin_only ON alembic_version
+                FOR ALL
+                USING (current_setting('role', true) = 'service_role');
+            END IF;
+        END $$;
     """)
-    context.execute_with_connection(
-        lambda conn: conn.execution_options(isolation_level="AUTOCOMMIT")
-    )
+    # HNSW index requires CONCURRENTLY which needs AUTOCOMMIT
+    # Run index creation in its own transaction with COMMIT
+    op.execute("COMMIT")
     op.execute("""
-        CREATE INDEX idx_documents_embedding_hnsw
+        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_documents_embedding_hnsw
         ON documents
         USING hnsw (embedding vector_cosine_ops)
         WITH (m = 16, ef_construction = 64)

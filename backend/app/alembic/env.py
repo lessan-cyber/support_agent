@@ -24,9 +24,8 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Set the database URL from application settings
-# This ensures Alembic uses the same database as the application
-config.set_main_option("sqlalchemy.url", str(settings.DATABASE_URL))
+# Store the database URL for use in run_migrations_online
+DATABASE_URL = str(settings.DATABASE_URL)
 
 
 # Add your model's MetaData object here for 'autogenerate' support
@@ -65,7 +64,7 @@ def run_migrations_offline() -> None:
 async def run_migrations_online() -> None:
     """Run migrations with proper autocommit for pgvector"""
     connectable = create_async_engine(
-        config.get_main_option("sqlalchemy.url"),
+        DATABASE_URL,
         poolclass=pool.NullPool,
     )
 
