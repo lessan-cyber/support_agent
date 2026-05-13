@@ -4,6 +4,7 @@ import * as React from "react"
 import { ArchiveX, FileInput, File, Inbox, Send, Trash2, Weight, Plus, Settings } from "lucide-react"
 
 import { NavUser } from "@/components/dashboard/nav-user"
+import { getAvatarColor } from "@/lib/utils/avatar.utils"
 import { Label } from "@/components/ui/label"
 import {
   Sidebar,
@@ -151,23 +152,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         await signOut()
       })
     }
-
-    // Générer une couleur basée sur la première lettre du nom
-    const getAvatarColor = (name: string) => {
-      if (!name) return 'bg-gray-400'
-      const firstLetter = name.charAt(0).toUpperCase()
-      const charCode = firstLetter.charCodeAt(0)
-      const colors = [
-        'bg-red-500',
-        'bg-orange-500',
-        'bg-yellow-500',
-        'bg-green-500',
-        'bg-blue-500',
-        'bg-indigo-500',
-        'bg-purple-500',
-        'bg-pink-500',
-      ]
-      return colors[charCode % colors.length]
     }
   
     

@@ -1,22 +1,55 @@
 // app/(protected)/dashboard/inbox/[messageId]/page.tsx
 "use client"
 // get messageId from url params and display it in the page
-import { useRouter } from "next/navigation"
-import { useSearchParams } from "next/dist/client/components/navigation"
-import { useEffect } from "react"
+import { useParams, useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
 import { MessageComponent } from "@/components/dashboard/message";
 
+interface MessageData {
+  user: { name: string; email: string; avatar: string };
+  content: string;
+  date: string;
+}
+
 export default function Message() {
-    const searchParams = useSearchParams()
-    const messageId = searchParams.get('messageId')
+    const { messageId } = useParams<{ messageId: string }>()
     const router = useRouter()
+    const [message, setMessage] = useState<MessageData | null>(null)
+    const [loading, setLoading] = useState(true)
 
     useEffect(() => {
         if (!messageId) {
             router.push("/dashboard/inbox")
+            return
         }
+        const fetchMessage = async () => {
+            try {
+                const response = await fetch(
+                    `/api/v1/admin/conversations/${messageId}/messages`
+                )
+                if (!response.ok) throw new Error("Not found")
+                const data = await response.json()
+                if (data.messages?.length) {
+                    const msg = data.messages[0]
+                    setMessage({
+                        user: { name: msg.sender_name || "Unknown", email: msg.sender_email || "", avatar: "/avatars/01.png" },
+                        content: msg.content,
+                        date: msg.created_at,
+                    })
+                }
+            } catch {
+                router.push("/dashboard/inbox")
+            } finally {
+                setLoading(false)
+            }
+        }
+        fetchMessage()
     }, [messageId, router])
+
+    if (loading) return <div className="p-4 text-sm text-muted-foreground">Loading...</div>
+    if (!message) return null
+
     return <div>
-        <MessageComponent user={{name: "John Doe", email: "john.doe@example.com", avatar: "/avatars/01.png"}} content="This is a sample message." date="2023-10-15" />
+        <MessageComponent user={message.user} content={message.content} date={message.date} />
     </div>
 }
