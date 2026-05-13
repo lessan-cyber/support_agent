@@ -72,15 +72,8 @@ class User(BaseModel, TimestampMixin):
     preferences: Mapped[UserPreferencesDict] = mapped_column(
         JSONB,
         nullable=False,
-        default=lambda: {  # Use callable to avoid mutable default
-            "language": "en",
-            "timezone": "UTC",
-            "email_notifications": True,
-            "default_view": "grid",
-            "items_per_page": 12,
-            "auto_download": False,
-        },
-        server_default='{"language": "en", "timezone": "UTC", "email_notifications": true, "default_view": "grid", "items_per_page": 12, "auto_download": false}',
+        default=lambda: dict(USER_DEFAULTS),
+        server_default=json.dumps(USER_DEFAULTS),
         comment="User preferences stored as JSON.",
     )
     name: Mapped[str] = mapped_column(

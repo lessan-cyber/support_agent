@@ -294,7 +294,14 @@ async def get_conversation_list(
         if params.client_email:
             filters.append(Ticket.user_email == params.client_email)
         if params.status:
-            filters.append(Ticket.status == TicketStatus(params.status))
+            try:
+                status_filter = TicketStatus(params.status)
+            except ValueError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Invalid status filter: {params.status}",
+                ) from e
+            filters.append(Ticket.status == status_filter)
         if params.start_date:
             start_date_obj = datetime.fromisoformat(params.start_date).date()
             filters.append(Ticket.created_at >= start_date_obj)
