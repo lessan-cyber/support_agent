@@ -18,6 +18,16 @@ class UserRole(enum.Enum):
     AGENT = "agent"
 
 
+USER_DEFAULTS = {
+    "language": "en",
+    "timezone": "UTC",
+    "email_notifications": True,
+    "default_view": "grid",
+    "items_per_page": 12,
+    "auto_download": False,
+}
+
+
 class User(BaseModel, TimestampMixin):
     __tablename__ = "users"
 
@@ -67,14 +77,7 @@ class User(BaseModel, TimestampMixin):
     preferences: Mapped[UserPreferencesDict] = mapped_column(
         JSONB,
         nullable=False,
-        default={
-            "language": "en",
-            "timezone": "UTC",
-            "email_notifications": True,
-            "default_view": "grid",
-            "items_per_page": 12,
-            "auto_download": False,
-        },
+        default=USER_DEFAULTS,
         server_default='{"language": "en", "timezone": "UTC", "email_notifications": true, "default_view": "grid", "items_per_page": 12, "auto_download": false}',
         comment="User preferences stored as JSON.",
     )
