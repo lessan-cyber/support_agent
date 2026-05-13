@@ -116,7 +116,7 @@ export function DocumentsTable({
                       variant="ghost"
                       size="icon"
                       onClick={() => onPreview(document)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
@@ -124,7 +124,7 @@ export function DocumentsTable({
                       variant="ghost"
                       size="icon"
                       onClick={() => onDownload(document)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                     >
                       <Download className="h-4 w-4" />
                     </Button>

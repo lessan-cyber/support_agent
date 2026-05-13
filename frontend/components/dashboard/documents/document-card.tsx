@@ -75,8 +75,10 @@ export function DocumentCard({
       <Card className="group hover:shadow-md transition-shadow cursor-pointer">
         <CardContent className="p-4">
           {/* PDF Preview Thumbnail */}
-          <div 
-            className="aspect-[3/4] bg-gradient-to-br from-red-50 to-red-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden"
+          <button
+            type="button"
+            aria-label={`Preview ${document.filename}`}
+            className="aspect-[3/4] bg-gradient-to-br from-red-50 to-red-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden w-full [border:none] [background:none] p-0 cursor-pointer"
             onClick={() => onPreview(document)}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-red-100/50 to-red-200/50" />
@@ -84,7 +86,7 @@ export function DocumentCard({
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
               <Eye className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-          </div>
+          </button>
 
           {/* Document Info */}
           <div className="space-y-2">

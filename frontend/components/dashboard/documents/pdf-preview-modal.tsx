@@ -58,7 +58,7 @@ export function PdfPreviewModal({ document, onClose }: PdfPreviewModalProps) {
               variant="ghost"
               size="icon"
               onClick={handleDownload}
-              title="Download"
+              aria-label="Download"
             >
               <Download className="h-4 w-4" />
             </Button>
@@ -66,7 +66,7 @@ export function PdfPreviewModal({ document, onClose }: PdfPreviewModalProps) {
               variant="ghost"
               size="icon"
               onClick={() => setIsFullscreen(!isFullscreen)}
-              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             >
               {isFullscreen ? (
                 <Minimize2 className="h-4 w-4" />
@@ -78,7 +78,7 @@ export function PdfPreviewModal({ document, onClose }: PdfPreviewModalProps) {
               variant="ghost"
               size="icon"
               onClick={onClose}
-              title="Close"
+              aria-label="Close"
             >
               <X className="h-4 w-4" />
             </Button>

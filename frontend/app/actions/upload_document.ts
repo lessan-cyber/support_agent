@@ -112,22 +112,36 @@ export async function getDocuments(params: {
     search: params.search,
   })
 
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/v1/admin/documents?${queryParams}`,
-    {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 120_000)
+
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/v1/admin/documents?${queryParams}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+      }
+    )
+
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch documents')
     }
-  )
 
-  if (!response.ok) {
-    throw new Error('Failed to fetch documents')
+    return parseJsonResponse<DocumentListResponse>(response)
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Request timed out')
+    }
+    throw error
   }
-
-  return parseJsonResponse<DocumentListResponse>(response)
 }
 
 // get all documents without pagination (for export)
@@ -142,22 +156,36 @@ export async function getAllDocuments(): Promise<DocumentListResponse> {
     throw new Error('Not authenticated')
   }
 
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/v1/admin/documents`,
-    {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 120_000)
+
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/v1/admin/documents`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+      }
+    )
+
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch documents')
     }
-  )
 
-  if (!response.ok) {
-    throw new Error('Failed to fetch documents')
+    return parseJsonResponse<DocumentListResponse>(response)
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Request timed out')
+    }
+    throw error
   }
-
-  return parseJsonResponse<DocumentListResponse>(response)
 }
 
 export async function deleteDocument(documentId: string): Promise<Record<string, unknown>> {
@@ -171,21 +199,35 @@ export async function deleteDocument(documentId: string): Promise<Record<string,
     throw new Error('Not authenticated')
   }
 
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/v1/admin/documents/${documentId}`,
-    {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-      },
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 120_000)
+
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/v1/admin/documents/${encodeURIComponent(documentId)}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        signal: controller.signal,
+      }
+    )
+
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      throw new Error('Failed to delete document')
     }
-  )
 
-  if (!response.ok) {
-    throw new Error('Failed to delete document')
+    return parseJsonResponse<Record<string, unknown>>(response)
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Request timed out')
+    }
+    throw error
   }
-
-  return parseJsonResponse<Record<string, unknown>>(response)
 }
 
 export async function updateDocument(
@@ -216,21 +258,35 @@ export async function updateDocument(
     data.filename = sanitized
   }
 
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/v1/admin/documents/${documentId}`,
-    {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 120_000)
+
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/v1/admin/documents/${encodeURIComponent(documentId)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+        signal: controller.signal,
+      }
+    )
+
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      throw new Error('Failed to update document')
     }
-  )
 
-  if (!response.ok) {
-    throw new Error('Failed to update document')
+    return parseJsonResponse<Record<string, unknown>>(response)
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Request timed out')
+    }
+    throw error
   }
-
-  return parseJsonResponse<Record<string, unknown>>(response)
 }

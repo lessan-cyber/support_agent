@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search, Filter, Grid3x3, List, Plus, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -68,8 +68,10 @@ export default function DocumentsPage() {
     const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
     const limit = 12;
+    const latestRequestIdRef = useRef(0);
 
     const fetchDocuments = async () => {
+        const requestId = ++latestRequestIdRef.current;
         setLoading(true);
         try {
             const response = await getDocuments({
@@ -79,6 +81,8 @@ export default function DocumentsPage() {
                 date_filter: dateFilter,
                 search: searchQuery,
             });
+
+            if (requestId !== latestRequestIdRef.current) return;
 
             setDocuments(response.documents.map((doc) => ({
                 id: doc.id,
