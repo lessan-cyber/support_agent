@@ -1,7 +1,9 @@
 """User model."""
 
 import enum
+import json
 import uuid
+from typing import TypedDict
 
 from sqlalchemy import Enum as EnumType
 from sqlalchemy import ForeignKey, String
@@ -26,6 +28,15 @@ USER_DEFAULTS = {
     "items_per_page": 12,
     "auto_download": False,
 }
+
+
+class UserPreferencesDict(TypedDict):
+    language: str
+    timezone: str
+    email_notifications: bool
+    default_view: str
+    items_per_page: int
+    auto_download: bool
 
 
 class User(BaseModel, TimestampMixin):
@@ -58,10 +69,17 @@ class User(BaseModel, TimestampMixin):
     )
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="users")
 
-    preferences: Mapped[dict] = mapped_column(
+    preferences: Mapped[UserPreferencesDict] = mapped_column(
         JSONB,
         nullable=False,
-        default=USER_DEFAULTS,
+        default=lambda: {  # Use callable to avoid mutable default
+            "language": "en",
+            "timezone": "UTC",
+            "email_notifications": True,
+            "default_view": "grid",
+            "items_per_page": 12,
+            "auto_download": False,
+        },
         server_default='{"language": "en", "timezone": "UTC", "email_notifications": true, "default_view": "grid", "items_per_page": 12, "auto_download": false}',
         comment="User preferences stored as JSON.",
     )

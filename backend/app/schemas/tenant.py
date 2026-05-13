@@ -45,6 +45,26 @@ class AllowedDomainUpdateRequest(BaseModel):
     old_domain: str = Field(..., description="Existing domain to be replaced")
     new_domain: str = Field(..., description="New domain to replace the old one")
 
+    @field_validator("new_domain")
+    @classmethod
+    def validate_new_domain(cls, domain: str) -> str:
+        """Validate and sanitize the new domain."""
+        domain_regex = re.compile(
+            r"^(?!.*\.\.)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$"
+        )
+
+        # Strip whitespace and scheme
+        sanitized = domain.strip()
+        sanitized = re.sub(r"^https?://", "", sanitized)
+        sanitized = sanitized.split("/")[0]
+
+        if not domain_regex.match(sanitized):
+            raise ValueError(
+                f"Invalid domain format: '{domain}' (sanitized: '{sanitized}')"
+            )
+
+        return sanitized
+
 
 class AllowedDomainAddRequest(BaseModel):
     """Schema for adding one or more domains."""

@@ -19,6 +19,16 @@ class TenantService:
         return result.scalar_one_or_none()
 
     @staticmethod
+    async def get_tenant_by_id_for_update(
+        tenant_id: str, db: AsyncSession
+    ) -> Optional[Tenant]:
+        """Get tenant by ID with row-level lock (SELECT ... FOR UPDATE)."""
+        result = await db.execute(
+            select(Tenant).where(Tenant.id == tenant_id).with_for_update()
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
     async def get_allowed_domains(
         tenant_id: str, db: AsyncSession
     ) -> List[str]:
@@ -33,20 +43,24 @@ class TenantService:
         tenant_id: str, domains: List[str], db: AsyncSession
     ) -> List[str]:
         """Add domains to a tenant's allowed domains list."""
-        tenant = await TenantService.get_tenant_by_id(tenant_id, db)
+        tenant = await TenantService.get_tenant_by_id_for_update(tenant_id, db)
         if not tenant:
             raise ValueError(f"Tenant {tenant_id} not found")
 
-        existing_domains = set(tenant.allowed_domains or [])
-        
-        # Check for duplicates
-        duplicates = [domain for domain in domains if domain in existing_domains]
-        if duplicates:
-            raise ValueError(f"Domains already exist: {', '.join(duplicates)}")
+        current = tenant.allowed_domains or []
+        existing_set = set(current)
+        seen = set()
+        duplicates = []
 
-        # Add new domains
-        updated_domains = list(existing_domains) + domains
-        tenant.allowed_domains = updated_domains
+        for domain in domains:
+            if domain in seen or domain in existing_set:
+                duplicates.append(domain)
+            seen.add(domain)
+
+        if duplicates:
+            raise ValueError(f"Duplicate domains: {', '.join(dict.fromkeys(duplicates))}")
+
+        tenant.allowed_domains = current + domains
         
         await db.commit()
         await db.refresh(tenant)
@@ -60,7 +74,7 @@ class TenantService:
         tenant_id: str, old_domain: str, new_domain: str, db: AsyncSession
     ) -> List[str]:
         """Update an existing domain in a tenant's allowed domains list."""
-        tenant = await TenantService.get_tenant_by_id(tenant_id, db)
+        tenant = await TenantService.get_tenant_by_id_for_update(tenant_id, db)
         if not tenant:
             raise ValueError(f"Tenant {tenant_id} not found")
 
@@ -90,7 +104,7 @@ class TenantService:
         tenant_id: str, domain: str, db: AsyncSession
     ) -> List[str]:
         """Remove a domain from a tenant's allowed domains list."""
-        tenant = await TenantService.get_tenant_by_id(tenant_id, db)
+        tenant = await TenantService.get_tenant_by_id_for_update(tenant_id, db)
         if not tenant:
             raise ValueError(f"Tenant {tenant_id} not found")
 
