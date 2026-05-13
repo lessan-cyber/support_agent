@@ -24,6 +24,8 @@ export default function Message() {
             return
         }
         const fetchMessage = async () => {
+            setMessage(null)
+            setLoading(true)
             try {
                 const supabase = createClient()
                 const { data: session } = await supabase.auth.getSession()
@@ -51,6 +53,9 @@ export default function Message() {
                         content: msg.content,
                         date: msg.created_at,
                     })
+                } else {
+                    router.push("/dashboard/inbox")
+                    return
                 }
             } catch {
                 router.push("/dashboard/inbox")

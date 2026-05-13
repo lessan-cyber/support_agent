@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Switch } from "@/components/ui/switch";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useUser } from "@/hooks/use-user";
 import { signOut } from "@/app/actions/auth";
 
@@ -133,11 +133,19 @@ const files = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-    // Note: I'm using state to show active item.
-    // IRL you should use the url/router.
-    const [activeItem, setActiveItem] = React.useState(data.navMain[0]);
     const { setOpen } = useSidebar();
     const router = useRouter();
+    const pathname = usePathname();
+
+    const [activeItem, setActiveItem] = React.useState(() => {
+        const match = data.navMain.find((item) => pathname.startsWith(item.url))
+        return match || data.navMain[0]
+    });
+
+    React.useEffect(() => {
+        const match = data.navMain.find((item) => pathname.startsWith(item.url))
+        if (match) setActiveItem(match)
+    }, [pathname])
 
     // Renomme lors de la destructuration
     const { user: currentUser, profile, loading } = useUser();
@@ -179,33 +187,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 asChild
                                 className="md:h-8 md:p-0"
                             >
-                                <div>
-                                    {" "}
-                                    {/* <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg"> */}
-                                    <Link
-                                        href="/"
-                                        className="flex items-center gap-3 group"
-                                    >
-                                        <div className="relative size-8 rounded-lg overflow-hidden">
-                                            <div className="absolute inset-0 bg-linear-to-br from-cyan-400 via-purple-500 to-purple-600 blur-sm opacity-75 group-hover:opacity-100 transition-opacity" />
-                                            <div className="relative w-full h-full bg-linear-to-br from-cyan-400 to-purple-600 flex items-center justify-center">
-                                                <svg
-                                                    className="w-6 h-6 text-white"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    viewBox="0 0 24 24"
-                                                >
-                                                    <path
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                        strokeWidth={2}
-                                                        d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                                                    />
-                                                </svg>
-                                            </div>
+                                <Link
+                                    href="/"
+                                    className="flex items-center gap-3 group"
+                                >
+                                    <div className="relative size-8 rounded-lg overflow-hidden shrink-0">
+                                        <div className="absolute inset-0 bg-linear-to-br from-cyan-400 via-purple-500 to-purple-600 blur-sm opacity-75 group-hover:opacity-100 transition-opacity" />
+                                        <div className="relative w-full h-full bg-linear-to-br from-cyan-400 to-purple-600 flex items-center justify-center">
+                                            <svg
+                                                className="w-6 h-6 text-white"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    strokeWidth={2}
+                                                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                                                />
+                                            </svg>
                                         </div>
-                                    </Link>
-                                    {/* </div> */}
+                                    </div>
                                     <div className="grid flex-1 text-left text-sm leading-tight">
                                         <span className="truncate font-medium">
                                             Acme Inc
@@ -214,7 +217,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                             Enterprise
                                         </span>
                                     </div>
-                                </div>
+                                </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                     </SidebarMenu>

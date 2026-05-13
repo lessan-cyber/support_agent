@@ -21,11 +21,14 @@ export function LiveConversation({
     useEffect(() => {
         if (!ticketId) return;
 
+        setConversation(null);
+        setMessages([]);
+        setLoading(true);
+
         const abortController = new AbortController();
 
         const fetchConversationMessages = async () => {
             try {
-                setLoading(true);
                 const supabase = createClient();
                 const { data: session } = await supabase.auth.getSession();
                 const token = session?.session?.access_token;

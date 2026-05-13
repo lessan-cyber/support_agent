@@ -183,7 +183,14 @@ export function InboxSidebar({
                 {error && (
                     <div className="flex flex-col items-center justify-center py-12 text-center text-destructive p-4">
                         <Inbox className="w-12 h-12 mb-3 opacity-50" />
-                        <p className="text-sm">{error}</p>
+                        <p className="text-sm mb-4">{error}</p>
+                        <button
+                            onClick={refetch}
+                            disabled={loading}
+                            className="text-xs font-semibold px-3 py-2 rounded-lg bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-50"
+                        >
+                            {loading ? "Retrying..." : "Retry"}
+                        </button>
                     </div>
                 )}
 
