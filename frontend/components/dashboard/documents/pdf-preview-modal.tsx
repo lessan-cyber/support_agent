@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
 
 interface Document {
   id: string
@@ -29,20 +30,17 @@ export function PdfPreviewModal({ document, onClose }: PdfPreviewModalProps) {
 
   if (!document) return null
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     try {
-      const response = await fetch(document.url)
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
       const a = window.document.createElement("a")
-      a.href = url
+      a.href = document.url
       a.download = document.filename
       window.document.body.appendChild(a)
       a.click()
-      window.URL.revokeObjectURL(url)
       window.document.body.removeChild(a)
     } catch (error) {
       console.error("Download failed:", error)
+      toast.error("Download failed. Please try again.")
     }
   }
 
@@ -91,6 +89,7 @@ export function PdfPreviewModal({ document, onClose }: PdfPreviewModalProps) {
             src={`${document.url}#toolbar=1&navpanes=1&scrollbar=1`}
             className="w-full h-full border-0"
             title={document.filename}
+            sandbox=""
           />
         </div>
       </DialogContent>

@@ -40,15 +40,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { formatDistanceToNow } from "date-fns"
-
-interface Document {
-  id: string
-  filename: string
-  size: number
-  uploaded_at: string
-  url: string
-}
+import { Document, formatFileSize, formatDate } from "@/lib/document-utils"
 
 interface DocumentCardProps {
   document: Document
@@ -71,25 +63,11 @@ export function DocumentCard({
   const [showRenameDialog, setShowRenameDialog] = React.useState(false)
   const [newName, setNewName] = React.useState(document.filename)
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + " B"
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB"
-    return (bytes / (1024 * 1024)).toFixed(2) + " MB"
-  }
-
   const handleRename = () => {
     if (newName && newName !== document.filename) {
       onRename(document.id, newName)
     }
     setShowRenameDialog(false)
-  }
-
-  const formatDate = (date: string) => {
-    try {
-      return formatDistanceToNow(new Date(date), { addSuffix: true })
-    } catch {
-      return "Recently"
-    }
   }
 
   return (

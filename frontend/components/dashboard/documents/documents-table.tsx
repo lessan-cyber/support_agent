@@ -47,15 +47,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { formatDistanceToNow } from "date-fns"
-
-interface Document {
-  id: string
-  filename: string
-  size: number
-  uploaded_at: string
-  url: string
-}
+import { Document, formatFileSize, formatDate } from "@/lib/document-utils"
 
 interface DocumentsTableProps {
   documents: Document[]
@@ -78,23 +70,10 @@ export function DocumentsTable({
   const [renameDocument, setRenameDocument] = React.useState<Document | null>(null)
   const [newName, setNewName] = React.useState("")
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + " B"
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB"
-    return (bytes / (1024 * 1024)).toFixed(2) + " MB"
-  }
-
-  const formatDate = (date: string) => {
-    try {
-      return formatDistanceToNow(new Date(date), { addSuffix: true })
-    } catch {
-      return "Recently"
-    }
-  }
-
   const handleRename = () => {
-    if (renameDocument && newName && newName !== renameDocument.filename) {
-      onRename(renameDocument.id, newName)
+    const trimmed = newName.trim()
+    if (renameDocument && trimmed && trimmed !== renameDocument.filename) {
+      onRename(renameDocument.id, trimmed)
     }
     setRenameDocument(null)
     setNewName("")
