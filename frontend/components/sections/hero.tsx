@@ -1,6 +1,5 @@
 
 import Link from 'next/link';
-import { HeroBackground } from './hero-bg';
 
 import Spline from '@splinetool/react-spline/next';
 import { ScrollToDemoBtn } from '../ui/scroll-to-demo-btn';

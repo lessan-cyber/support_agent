@@ -5,7 +5,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from langgraph.types import Command
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.constructor import get_runnable
@@ -14,7 +14,6 @@ from app.api.deps import (
     get_rls_session,
 )
 from app.models.message import Message, SenderType
-from app.models.tenant import Tenant
 from app.models.ticket import Ticket, TicketStatus
 from app.models.user import User
 from app.schemas.chat import (
@@ -67,8 +66,13 @@ async def resume_ticket(
     logger.info(f"Resuming ticket {ticket_id}")
 
     try:
-        # 1. Validate ticket status (RLS ensures tenant isolation)
-        result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
+        # 1. Validate ticket status and tenant access
+        result = await db.execute(
+            select(Ticket).where(
+                Ticket.id == ticket_id,
+                Ticket.tenant_id == current_user.tenant_id,
+            )
+        )
         ticket = result.scalar_one_or_none()
 
         if not ticket:
@@ -245,53 +249,8 @@ async def get_conversation_list(
     )
 
     try:
-        # Subquery: rank messages per ticket by recency
-        latest_message_subquery = select(
-            Message.ticket_id,
-            Message.content,
-            Message.sender_type,
-            Message.created_at,
-            func.row_number()
-            .over(
-                partition_by=Message.ticket_id,
-                order_by=Message.created_at.desc(),
-            )
-            .label("rn"),
-        ).subquery("latest_messages")
-
-        # Main query: tickets with latest message and count in single query
-        query = (
-            select(
-                Ticket.id,
-                Ticket.status,
-                Ticket.user_email,
-                Ticket.created_at,
-                func.count(Message.id).label("message_count"),
-                latest_message_subquery.c.content.label("last_message_content"),
-                latest_message_subquery.c.sender_type.label("last_message_sender"),
-                latest_message_subquery.c.created_at.label("last_message_at"),
-            )
-            .outerjoin(Message, Message.ticket_id == Ticket.id)
-            .outerjoin(
-                latest_message_subquery,
-                and_(
-                    Ticket.id == latest_message_subquery.c.ticket_id,
-                    latest_message_subquery.c.rn == 1,
-                ),
-            )
-            .group_by(
-                Ticket.id,
-                Ticket.status,
-                Ticket.user_email,
-                Ticket.created_at,
-                latest_message_subquery.c.content,
-                latest_message_subquery.c.sender_type,
-                latest_message_subquery.c.created_at,
-            )
-        )
-
-        # Apply filters
-        filters = []
+        # Build shared filters (applied to both count and page queries)
+        filters = [Ticket.tenant_id == current_user.tenant_id]
         if params.client_email:
             filters.append(Ticket.user_email == params.client_email)
         if params.status:
@@ -310,18 +269,56 @@ async def get_conversation_list(
             end_date_obj = datetime.fromisoformat(params.end_date).date()
             filters.append(Ticket.created_at <= end_date_obj)
 
-        if filters:
-            query = query.where(and_(*filters))
-
-        # Get total count before pagination
-        count_subquery = query.subquery()
-        count_query = select(func.count()).select_from(count_subquery)
+        # Lightweight count: only hits tickets table (no LATERAL joins)
+        count_query = select(func.count()).select_from(Ticket).where(and_(*filters))
         count_result = await db.execute(count_query)
         total_count = count_result.scalar() or 0
 
-        # Apply ordering and pagination
-        query = query.order_by(Ticket.created_at.desc())
-        query = query.limit(params.limit).offset(params.offset)
+        if total_count == 0:
+            return ConversationListResponse(
+                conversations=[], total_count=0, limit=params.limit, offset=params.offset
+            )
+
+        # LATERAL subquery: latest message per ticket (single index lookup per ticket)
+        latest_message = (
+            select(
+                Message.content.label("last_message_content"),
+                Message.sender_type.label("last_message_sender"),
+                Message.created_at.label("last_message_at"),
+            )
+            .where(Message.ticket_id == Ticket.id)
+            .order_by(Message.created_at.desc())
+            .limit(1)
+            .lateral("latest_message")
+        )
+
+        # LATERAL subquery: message count per ticket
+        message_count = (
+            select(func.count().label("message_count"))
+            .where(Message.ticket_id == Ticket.id)
+            .lateral("message_count")
+        )
+
+        # Full query: only built when there are results to fetch
+        query = (
+            select(
+                Ticket.id,
+                Ticket.status,
+                Ticket.user_email,
+                Ticket.created_at,
+                message_count.c.message_count,
+                latest_message.c.last_message_content,
+                latest_message.c.last_message_sender,
+                latest_message.c.last_message_at,
+            )
+            .select_from(Ticket)
+            .outerjoin(latest_message, true())
+            .outerjoin(message_count, true())
+            .where(and_(*filters))
+            .order_by(Ticket.created_at.desc())
+            .limit(params.limit)
+            .offset(params.offset)
+        )
 
         # Execute
         result = await db.execute(query)
@@ -391,8 +388,13 @@ async def get_conversation_messages(
     logger.info(f"Admin {current_user.id} requesting messages for ticket {ticket_id}")
 
     try:
-        # Verify ticket exists (RLS ensures tenant isolation)
-        ticket_result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
+        # Verify ticket exists and belongs to current tenant
+        ticket_result = await db.execute(
+            select(Ticket).where(
+                Ticket.id == ticket_id,
+                Ticket.tenant_id == current_user.tenant_id,
+            )
+        )
         ticket = ticket_result.scalar_one_or_none()
 
         if not ticket:
@@ -621,6 +623,13 @@ async def add_allowed_domains(
 
     except HTTPException:
         raise
+    except ValueError as e:
+        await db.rollback()
+        logger.warning(f"Failed to add domains to tenant {tenant_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
     except Exception as e:
         await db.rollback()
         logger.error(f"Failed to add domains to tenant {tenant_id}: {e}", exc_info=True)

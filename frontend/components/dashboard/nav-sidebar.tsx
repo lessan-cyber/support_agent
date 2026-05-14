@@ -30,6 +30,7 @@ import {
     Dialog,
     DialogContent,
     DialogHeader,
+    DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { PdfUploader } from "@/components/pdf-uploader";
@@ -131,7 +132,9 @@ export function NavSidebar({ user, ...props }: AppSidebarProps) {
                                         </SidebarMenuButton>
                                     </DialogTrigger>
                                     <DialogContent className="max-w-3xl">
-                                        <DialogHeader title="Upload Document" />
+                                        <DialogHeader>
+                                            <DialogTitle>Upload Document</DialogTitle>
+                                        </DialogHeader>
                                         <PdfUploader />
                                     </DialogContent>
                                 </Dialog>

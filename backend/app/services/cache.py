@@ -276,7 +276,6 @@ class SemanticCache:
                 logger.error(f"Error closing Redis connection: {e}")
         self._index = None
         self._redis_client = None
-        self._embedding_model = None
         self._initialized = False
 
 

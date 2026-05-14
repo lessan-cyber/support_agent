@@ -1,5 +1,4 @@
 import React from "react";
-import Hero from "./hero";
 
 export const HeroBackground = ({
     content,
@@ -43,7 +42,7 @@ export const HeroBackground = ({
 
         {/* Content */}
         <div className="relative z-10">
-            {content? content : <Hero />}
+            {content}
         </div>
         </div>
     );
