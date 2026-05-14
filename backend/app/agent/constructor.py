@@ -7,6 +7,7 @@ from langgraph.errors import GraphInterrupt
 from langgraph.graph import END, START, StateGraph
 
 from app.agent.nodes.cache_check import check_cache
+from app.agent.nodes.cache_check_raw import check_cache_raw
 from app.agent.nodes.cache_update import cache_high_confidence_response
 from app.agent.nodes.confidence import grade_confidence
 from app.agent.nodes.contextualize import contextualize_question
@@ -18,6 +19,7 @@ from app.utils.logging_config import logger
 
 # Define the graph structure
 graph = StateGraph(AgentState)
+graph.add_node("check_cache_raw", check_cache_raw)
 graph.add_node("contextualize", contextualize_question)
 graph.add_node("check_cache", check_cache)
 graph.add_node("retrieve", retrieve_documents)
@@ -26,12 +28,16 @@ graph.add_node("grade_confidence", grade_confidence)
 graph.add_node("cache_high_confidence", cache_high_confidence_response)
 graph.add_node("escalate", escalate_to_human)
 
-# Define the edges
-graph.add_edge(START, "contextualize")
-graph.add_edge("contextualize", "check_cache")
+# Phase 1: check cache with raw question (0 LLM calls if hit)
+graph.add_edge(START, "check_cache_raw")
+graph.add_conditional_edges(
+    "check_cache_raw",
+    lambda state: END if state["is_cache_hit"] else "contextualize",
+    {"END", "contextualize"},
+)
 
-# Conditional edge: if cache hit, go directly to END (with cached response)
-# If cache miss, proceed with retrieve -> generate
+# Phase 2: rephrase question then check cache again (1 LLM call if hit)
+graph.add_edge("contextualize", "check_cache")
 graph.add_conditional_edges(
     "check_cache",
     lambda state: END if state["is_cache_hit"] else "retrieve",
@@ -117,7 +123,14 @@ async def stream_response(
             name = event.get("name")
 
             if kind == "on_chain_start":
-                if name == "contextualize":
+                if name == "check_cache_raw":
+                    yield json.dumps(
+                        {
+                            "type": "status",
+                            "content": "Checking for similar past answers...",
+                        }
+                    )
+                elif name == "contextualize":
                     yield json.dumps(
                         {
                             "type": "status",
@@ -128,7 +141,7 @@ async def stream_response(
                     yield json.dumps(
                         {
                             "type": "status",
-                            "content": "Checking for similar past answers...",
+                            "content": "Checking cache with refined question...",
                         }
                     )
                 elif name == "retrieve":
@@ -149,7 +162,9 @@ async def stream_response(
                 if not output:
                     continue
 
-                if name == "check_cache" and output.get("is_cache_hit"):
+                if name in ("check_cache_raw", "check_cache") and output.get(
+                    "is_cache_hit"
+                ):
                     messages = output.get("messages", [])
                     if messages:
                         cached_content = messages[0].content
