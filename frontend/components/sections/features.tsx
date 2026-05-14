@@ -1,29 +1,30 @@
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from "react";
 
 export default function Features() {
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const [hoveredCard, setHoveredCard] = useState<number | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+    const [hoveredCard, setHoveredCard] = useState<number | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        setMousePosition({
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
-        });
-      }
-    };
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (containerRef.current) {
+                const rect = containerRef.current.getBoundingClientRect();
+                setMousePosition({
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top,
+                });
+            }
+        };
 
-    const container = containerRef.current;
-    if (container) {
-      container.addEventListener('mousemove', handleMouseMove);
-      return () => container.removeEventListener('mousemove', handleMouseMove);
-    }
-  }, []);
+        const container = containerRef.current;
+        if (container) {
+            container.addEventListener("mousemove", handleMouseMove);
+            return () =>
+                container.removeEventListener("mousemove", handleMouseMove);
+        }
+    }, []);
 
   const cards = [
     {
@@ -121,38 +122,13 @@ export default function Features() {
                 <h3 className="text-2xl font-bold mb-4 leading-tight">
                   {card.title}
                 </h3>
-                
+
                 <p className="text-muted-foreground mb-6 leading-relaxed">
                   {card.description}
                 </p>
 
-                {/* Features list for first card */}
-                {card.id === 1 && (
-                  <div className="mb-6 space-y-2">
-                    {card.features.map((feature, idx) => (
-                      <div key={idx} className="flex items-center text-sm text-gray-400">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                        {feature}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Features for third card */}
-                {card.id === 3 && (
-                  <div className="mb-6 space-y-3">
-                    {card.features.map((feature, idx) => (
-                      <div key={idx} className="flex items-center text-gray-300">
-                        <svg className="w-5 h-5 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        {feature}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {/* Features for third card */}
-                {card.id === 5 && (
+                {/* Features list */}
+                {card.features.length > 0 && (
                   <div className="mb-6 space-y-3">
                     {card.features.map((feature, idx) => (
                       <div key={idx} className="flex items-center text-gray-300">
@@ -173,14 +149,14 @@ export default function Features() {
                   </svg>
                 </button>
 
-                {/* Special content for cards */}
+                {/* Special content for first card */}
                 {card.id === 1 && (
                   <div className="mt-8 relative">
                     <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
                       <div className="flex items-center justify-center space-x-4">
                         <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
                           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
+                            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
                           </svg>
                         </div>
                         <div className="flex space-x-2">
@@ -194,6 +170,7 @@ export default function Features() {
                   </div>
                 )}
 
+                {/* Self hosted badge for third card */}
                 {card.id === 3 && (
                   <div className="mt-6">
                     <div className="inline-block bg-purple-600/20 text-purple-300 px-3 py-1 rounded-full text-sm font-medium">
@@ -204,27 +181,19 @@ export default function Features() {
               </div>
 
               {/* Hover glow effect */}
-              <div 
+              <div
                 className={`absolute inset-0 rounded-2xl transition-opacity duration-300 ${
-                  hoveredCard === card.id ? 'opacity-20' : 'opacity-0'
+                  hoveredCard === card.id ? "opacity-20" : "opacity-0"
                 }`}
                 style={{
-                  background: hoveredCard === card.id ? 
-                    'radial-gradient(circle at center, rgba(59, 130, 246, 0.3), transparent 70%)' :
-                    'transparent'
+                  background:
+                    hoveredCard === card.id
+                      ? "radial-gradient(circle at center, rgba(59, 130, 246, 0.3), transparent 70%)"
+                      : "transparent",
                 }}
               />
             </div>
           ))}
-        </div>
-
-        {/* Additional content area */}
-        <div className="max-w-7xl mx-auto px-8 py-16">
-          <div className="text-center">
-            <p className="text-gray-400 text-lg">
-              Experience the power of AI integration with interactive hover effects
-            </p>
-          </div>
         </div>
       </div>
     </div>

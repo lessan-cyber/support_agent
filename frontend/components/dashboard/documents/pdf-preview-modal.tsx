@@ -1,16 +1,17 @@
 // app/dashboard/documents/components/pdf-preview-modal.tsx
-"use client"
+"use client";
 
 import * as React from "react"
 import { X, Download, Maximize2, Minimize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw } from "lucide-react"
 import { Document, Page, pdfjs } from "react-pdf"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 import "react-pdf/dist/Page/AnnotationLayer.js"
 import "react-pdf/dist/Page/TextLayer.js"

@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     )
     CACHE_TTL_SECONDS: int = Field(default=604800, alias="CACHE_TTL_SECONDS")  # 7 days
     MAX_FILE_SIZE: int = 40 * 1024 * 1024
+    CORS_ALLOWED_ORIGINS: list[str] = Field(default=["*"], alias="CORS_ALLOWED_ORIGINS")
+    DOCUMENT_CONCURRENCY_LIMIT: int = Field(
+        default=5, alias="DOCUMENT_CONCURRENCY_LIMIT"
+    )
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

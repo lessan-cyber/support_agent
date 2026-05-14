@@ -3,6 +3,7 @@ from typing import AsyncGenerator, Optional
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import Runnable
+from langgraph.errors import GraphInterrupt
 from langgraph.graph import END, START, StateGraph
 
 from app.agent.nodes.cache_check import check_cache
@@ -17,8 +18,8 @@ from app.utils.logging_config import logger
 
 # Define the graph structure
 graph = StateGraph(AgentState)
-graph.add_node("check_cache", check_cache)
 graph.add_node("contextualize", contextualize_question)
+graph.add_node("check_cache", check_cache)
 graph.add_node("retrieve", retrieve_documents)
 graph.add_node("generate", generate_response)
 graph.add_node("grade_confidence", grade_confidence)
@@ -26,17 +27,17 @@ graph.add_node("cache_high_confidence", cache_high_confidence_response)
 graph.add_node("escalate", escalate_to_human)
 
 # Define the edges
-graph.add_edge(START, "check_cache")
+graph.add_edge(START, "contextualize")
+graph.add_edge("contextualize", "check_cache")
 
 # Conditional edge: if cache hit, go directly to END (with cached response)
-# If cache miss, proceed with contextualize -> retrieve -> generate
+# If cache miss, proceed with retrieve -> generate
 graph.add_conditional_edges(
     "check_cache",
-    lambda state: END if state["is_cache_hit"] else "contextualize",
-    {"END", "contextualize"},
+    lambda state: END if state["is_cache_hit"] else "retrieve",
+    {"END", "retrieve"},
 )
 
-graph.add_edge("contextualize", "retrieve")
 graph.add_edge("retrieve", "generate")
 graph.add_edge("generate", "grade_confidence")
 
@@ -115,7 +116,14 @@ async def stream_response(
             name = event.get("name")
 
             if kind == "on_chain_start":
-                if name == "check_cache":
+                if name == "contextualize":
+                    yield json.dumps(
+                        {
+                            "type": "status",
+                            "content": "Understanding your question...",
+                        }
+                    )
+                elif name == "check_cache":
                     yield json.dumps(
                         {
                             "type": "status",

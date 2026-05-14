@@ -49,8 +49,8 @@ interface DocumentCardProps {
   document: Document
   onDownload: (document: Document) => void
   onDelete: (documentId: string) => void
-  onRename: (documentId: string, newName: string) => void
-  onShare: (documentId: string) => void
+  // onRename: (documentId: string, newName: string) => void
+  // onShare: (documentId: string) => void
   onPreview: (document: Document) => void
 }
 

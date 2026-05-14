@@ -8,9 +8,8 @@ Create Date: 2025-11-30 18:34:09.608237
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "4a052b179d39"
@@ -35,7 +34,6 @@ def upgrade() -> None:
             END IF;
         END $$;
     """)
-
     # Add the email column to the users table
     op.add_column(
         "users",

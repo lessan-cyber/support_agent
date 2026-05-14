@@ -1,6 +1,16 @@
 """User-related Pydantic schemas."""
 
-from pydantic import BaseModel, Field
+from enum import Enum
+from zoneinfo import available_timezones
+
+from pydantic import BaseModel, Field, field_validator
+
+
+class ViewMode(str, Enum):
+    """Available view modes."""
+
+    GRID = "grid"
+    LIST = "list"
 
 
 class UserPreferences(BaseModel):
@@ -20,10 +30,9 @@ class UserPreferences(BaseModel):
         default=True,
         description="Whether to send email notifications",
     )
-    default_view: str = Field(
-        default="grid",
+    default_view: ViewMode = Field(
+        default=ViewMode.GRID,
         description="Default view mode ('grid' or 'list')",
-        max_length=20,
     )
     items_per_page: int = Field(
         default=12,
@@ -35,6 +44,13 @@ class UserPreferences(BaseModel):
         default=False,
         description="Whether to automatically download attachments",
     )
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: str) -> str:
+        if value not in available_timezones():
+            raise ValueError(f"Invalid timezone: {value}")
+        return value
 
 
 class UserPreferencesUpdateRequest(BaseModel):

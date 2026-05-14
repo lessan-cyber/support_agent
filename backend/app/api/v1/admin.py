@@ -5,7 +5,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from langgraph.types import Command
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.constructor import get_runnable
@@ -14,7 +14,6 @@ from app.api.deps import (
     get_rls_session,
 )
 from app.models.message import Message, SenderType
-from app.models.tenant import Tenant
 from app.models.ticket import Ticket, TicketStatus
 from app.models.user import User
 from app.schemas.chat import (
@@ -28,8 +27,8 @@ from app.schemas.chat import (
 from app.schemas.document import DocumentListResponse
 from app.schemas.tenant import (
     AllowedDomainAddRequest,
-    AllowedDomainUpdateRequest,
     AllowedDomainsListResponse,
+    AllowedDomainUpdateRequest,
 )
 from app.schemas.user import UserPreferencesResponse, UserPreferencesUpdateRequest
 from app.services.cache import semantic_cache
@@ -67,8 +66,13 @@ async def resume_ticket(
     logger.info(f"Resuming ticket {ticket_id}")
 
     try:
-        # 1. Validate ticket status (RLS ensures tenant isolation)
-        result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
+        # 1. Validate ticket status and tenant access
+        result = await db.execute(
+            select(Ticket).where(
+                Ticket.id == ticket_id,
+                Ticket.tenant_id == current_user.tenant_id,
+            )
+        )
         ticket = result.scalar_one_or_none()
 
         if not ticket:
@@ -172,7 +176,7 @@ async def resume_ticket(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to resume ticket",
-        )
+        ) from e
 
 
 @router.get("/documents", response_model=DocumentListResponse)
@@ -217,7 +221,7 @@ async def get_tenant_documents(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve documents",
-        )
+        ) from e
 
 
 @router.get("/conversations", response_model=ConversationListResponse)
@@ -245,57 +249,19 @@ async def get_conversation_list(
     )
 
     try:
-        # Subquery: rank messages per ticket by recency
-        latest_message_subquery = select(
-            Message.ticket_id,
-            Message.content,
-            Message.sender_type,
-            Message.created_at,
-            func.row_number()
-            .over(
-                partition_by=Message.ticket_id,
-                order_by=Message.created_at.desc(),
-            )
-            .label("rn"),
-        ).subquery("latest_messages")
-
-        # Main query: tickets with latest message and count in single query
-        query = (
-            select(
-                Ticket.id,
-                Ticket.status,
-                Ticket.user_email,
-                Ticket.created_at,
-                func.count(Message.id).label("message_count"),
-                latest_message_subquery.c.content.label("last_message_content"),
-                latest_message_subquery.c.sender_type.label("last_message_sender"),
-                latest_message_subquery.c.created_at.label("last_message_at"),
-            )
-            .outerjoin(Message, Message.ticket_id == Ticket.id)
-            .outerjoin(
-                latest_message_subquery,
-                and_(
-                    Ticket.id == latest_message_subquery.c.ticket_id,
-                    latest_message_subquery.c.rn == 1,
-                ),
-            )
-            .group_by(
-                Ticket.id,
-                Ticket.status,
-                Ticket.user_email,
-                Ticket.created_at,
-                latest_message_subquery.c.content,
-                latest_message_subquery.c.sender_type,
-                latest_message_subquery.c.created_at,
-            )
-        )
-
-        # Apply filters
-        filters = []
+        # Build shared filters (applied to both count and page queries)
+        filters = [Ticket.tenant_id == current_user.tenant_id]
         if params.client_email:
             filters.append(Ticket.user_email == params.client_email)
         if params.status:
-            filters.append(Ticket.status == TicketStatus(params.status))
+            try:
+                status_filter = TicketStatus(params.status)
+            except ValueError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Invalid status filter: {params.status}",
+                ) from e
+            filters.append(Ticket.status == status_filter)
         if params.start_date:
             start_date_obj = datetime.fromisoformat(params.start_date).date()
             filters.append(Ticket.created_at >= start_date_obj)
@@ -303,18 +269,56 @@ async def get_conversation_list(
             end_date_obj = datetime.fromisoformat(params.end_date).date()
             filters.append(Ticket.created_at <= end_date_obj)
 
-        if filters:
-            query = query.where(and_(*filters))
-
-        # Get total count before pagination
-        count_subquery = query.subquery()
-        count_query = select(func.count()).select_from(count_subquery)
+        # Lightweight count: only hits tickets table (no LATERAL joins)
+        count_query = select(func.count()).select_from(Ticket).where(and_(*filters))
         count_result = await db.execute(count_query)
         total_count = count_result.scalar() or 0
 
-        # Apply ordering and pagination
-        query = query.order_by(Ticket.created_at.desc())
-        query = query.limit(params.limit).offset(params.offset)
+        if total_count == 0:
+            return ConversationListResponse(
+                conversations=[], total_count=0, limit=params.limit, offset=params.offset
+            )
+
+        # LATERAL subquery: latest message per ticket (single index lookup per ticket)
+        latest_message = (
+            select(
+                Message.content.label("last_message_content"),
+                Message.sender_type.label("last_message_sender"),
+                Message.created_at.label("last_message_at"),
+            )
+            .where(Message.ticket_id == Ticket.id)
+            .order_by(Message.created_at.desc())
+            .limit(1)
+            .lateral("latest_message")
+        )
+
+        # LATERAL subquery: message count per ticket
+        message_count = (
+            select(func.count().label("message_count"))
+            .where(Message.ticket_id == Ticket.id)
+            .lateral("message_count")
+        )
+
+        # Full query: only built when there are results to fetch
+        query = (
+            select(
+                Ticket.id,
+                Ticket.status,
+                Ticket.user_email,
+                Ticket.created_at,
+                message_count.c.message_count,
+                latest_message.c.last_message_content,
+                latest_message.c.last_message_sender,
+                latest_message.c.last_message_at,
+            )
+            .select_from(Ticket)
+            .outerjoin(latest_message, true())
+            .outerjoin(message_count, true())
+            .where(and_(*filters))
+            .order_by(Ticket.created_at.desc())
+            .limit(params.limit)
+            .offset(params.offset)
+        )
 
         # Execute
         result = await db.execute(query)
@@ -384,8 +388,13 @@ async def get_conversation_messages(
     logger.info(f"Admin {current_user.id} requesting messages for ticket {ticket_id}")
 
     try:
-        # Verify ticket exists (RLS ensures tenant isolation)
-        ticket_result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
+        # Verify ticket exists and belongs to current tenant
+        ticket_result = await db.execute(
+            select(Ticket).where(
+                Ticket.id == ticket_id,
+                Ticket.tenant_id == current_user.tenant_id,
+            )
+        )
         ticket = ticket_result.scalar_one_or_none()
 
         if not ticket:
@@ -429,7 +438,7 @@ async def get_conversation_messages(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve messages",
-        )
+        ) from e
 
 
 @router.get("/preferences", response_model=UserPreferencesResponse)
@@ -480,6 +489,7 @@ async def update_preferences(
         )
 
         # Merge with provided values (only non-None fields)
+
         update_data = request.model_dump(exclude_none=True)
         current_prefs.update(update_data)
 
@@ -503,10 +513,12 @@ async def update_preferences(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update preferences",
-        )
+        ) from e
 
 
-@router.get("/tenants/{tenant_id}/allowed-domains", response_model=AllowedDomainsListResponse)
+@router.get(
+    "/tenants/{tenant_id}/allowed-domains", response_model=AllowedDomainsListResponse
+)
 async def get_allowed_domains(
     tenant_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
@@ -528,65 +540,9 @@ async def get_allowed_domains(
         HTTPException 404: If tenant not found
         HTTPException 500: If unexpected error occurs
     """
-    logger.info(f"User {current_user.id} requesting allowed domains for tenant {tenant_id}")
-
-    try:
-        # Verify tenant exists and user has access (RLS ensures tenant isolation)
-        result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
-        tenant = result.scalar_one_or_none()
-
-        if not tenant:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found"
-            )
-
-        # Verify current user belongs to this tenant
-        if str(current_user.tenant_id) != str(tenant_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User does not have access to this tenant",
-            )
-
-        domains = tenant.allowed_domains or []
-        return AllowedDomainsListResponse(
-            tenant_id=str(tenant_id),
-            domains=domains,
-            count=len(domains),
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to retrieve allowed domains for tenant {tenant_id}: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve allowed domains",
-        )
-
-
-@router.get("/tenants/{tenant_id}/allowed-domains", response_model=AllowedDomainsListResponse)
-async def get_allowed_domains(
-    tenant_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_rls_session),
-):
-    """
-    Get list of allowed domains for a tenant.
-
-    Args:
-        tenant_id: The tenant ID
-        current_user: Authenticated admin user
-        db: RLS-scoped database session
-
-    Returns:
-        AllowedDomainsListResponse with list of allowed domains
-
-    Raises:
-        HTTPException 403: If user doesn't have access to this tenant
-        HTTPException 404: If tenant not found
-        HTTPException 500: If unexpected error occurs
-    """
-    logger.info(f"User {current_user.id} requesting allowed domains for tenant {tenant_id}")
+    logger.info(
+        f"User {current_user.id} requesting allowed domains for tenant {tenant_id}"
+    )
 
     try:
         # Verify current user belongs to this tenant
@@ -598,7 +554,7 @@ async def get_allowed_domains(
 
         domains = await TenantService.get_allowed_domains(str(tenant_id), db)
         return AllowedDomainsListResponse(
-            tenant_id=str(tenant_id),
+            tenant_id=tenant_id,
             domains=domains,
             count=len(domains),
         )
@@ -606,14 +562,19 @@ async def get_allowed_domains(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to retrieve allowed domains for tenant {tenant_id}: {e}", exc_info=True)
+        logger.error(
+            f"Failed to retrieve allowed domains for tenant {tenant_id}: {e}",
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve allowed domains",
-        )
+        ) from e
 
 
-@router.post("/tenants/{tenant_id}/allowed-domains", response_model=AllowedDomainsListResponse)
+@router.post(
+    "/tenants/{tenant_id}/allowed-domains", response_model=AllowedDomainsListResponse
+)
 async def add_allowed_domains(
     tenant_id: uuid.UUID,
     request: AllowedDomainAddRequest,
@@ -648,28 +609,40 @@ async def add_allowed_domains(
                 detail="User does not have access to this tenant",
             )
 
-        domains = await TenantService.add_allowed_domains(str(tenant_id), request.domains, db)
-        
+        domains = await TenantService.add_allowed_domains(
+            str(tenant_id), request.domains, db
+        )
+
         logger.info(f"Added {len(request.domains)} domains to tenant {tenant_id}")
 
         return AllowedDomainsListResponse(
-            tenant_id=str(tenant_id),
+            tenant_id=tenant_id,
             domains=domains,
             count=len(domains),
         )
 
     except HTTPException:
         raise
+    except ValueError as e:
+        await db.rollback()
+        logger.warning(f"Failed to add domains to tenant {tenant_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
     except Exception as e:
         await db.rollback()
         logger.error(f"Failed to add domains to tenant {tenant_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to add allowed domains",
-        )
+        ) from e
 
 
-@router.delete("/tenants/{tenant_id}/allowed-domains/{domain}", response_model=AllowedDomainsListResponse)
+@router.delete(
+    "/tenants/{tenant_id}/allowed-domains/{domain}",
+    response_model=AllowedDomainsListResponse,
+)
 async def remove_allowed_domain(
     tenant_id: uuid.UUID,
     domain: str,
@@ -693,7 +666,9 @@ async def remove_allowed_domain(
         HTTPException 404: If tenant not found or domain not in list
         HTTPException 500: If unexpected error occurs
     """
-    logger.info(f"User {current_user.id} removing domain '{domain}' from tenant {tenant_id}")
+    logger.info(
+        f"User {current_user.id} removing domain '{domain}' from tenant {tenant_id}"
+    )
 
     try:
         # Verify current user belongs to this tenant
@@ -708,7 +683,7 @@ async def remove_allowed_domain(
         logger.info(f"Removed domain '{domain}' from tenant {tenant_id}")
 
         return AllowedDomainsListResponse(
-            tenant_id=str(tenant_id),
+            tenant_id=tenant_id,
             domains=domains,
             count=len(domains),
         )
@@ -717,14 +692,18 @@ async def remove_allowed_domain(
         raise
     except Exception as e:
         await db.rollback()
-        logger.error(f"Failed to remove domain from tenant {tenant_id}: {e}", exc_info=True)
+        logger.error(
+            f"Failed to remove domain from tenant {tenant_id}: {e}", exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to remove allowed domain",
-        )
+        ) from e
 
 
-@router.put("/tenants/{tenant_id}/allowed-domains", response_model=AllowedDomainsListResponse)
+@router.put(
+    "/tenants/{tenant_id}/allowed-domains", response_model=AllowedDomainsListResponse
+)
 async def update_allowed_domain(
     tenant_id: uuid.UUID,
     request: AllowedDomainUpdateRequest,
@@ -762,16 +741,15 @@ async def update_allowed_domain(
             )
 
         domains = await TenantService.update_allowed_domain(
-            str(tenant_id), 
-            request.old_domain, 
-            request.new_domain, 
-            db
+            str(tenant_id), request.old_domain, request.new_domain, db
         )
 
-        logger.info(f"Updated domain '{request.old_domain}' to '{request.new_domain}' for tenant {tenant_id}")
+        logger.info(
+            f"Updated domain '{request.old_domain}' to '{request.new_domain}' for tenant {tenant_id}"
+        )
 
         return AllowedDomainsListResponse(
-            tenant_id=str(tenant_id),
+            tenant_id=tenant_id,
             domains=domains,
             count=len(domains),
         )
@@ -780,163 +758,10 @@ async def update_allowed_domain(
         raise
     except Exception as e:
         await db.rollback()
-        logger.error(f"Failed to update domain in tenant {tenant_id}: {e}", exc_info=True)
+        logger.error(
+            f"Failed to update domain in tenant {tenant_id}: {e}", exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update allowed domain",
-        )
-
-
-@router.post("/tenants/{tenant_id}/allowed-domains", response_model=AllowedDomainsListResponse)
-async def add_allowed_domains(
-    tenant_id: uuid.UUID,
-    request: AllowedDomainAddRequest,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_rls_session),
-):
-    """
-    Add one or more domains to a tenant's allowed domains list.
-
-    Args:
-        tenant_id: The tenant ID
-        request: List of domains to add
-        current_user: Authenticated admin user
-        db: RLS-scoped database session
-
-    Returns:
-        AllowedDomainsListResponse with updated list of allowed domains
-
-    Raises:
-        HTTPException 403: If user doesn't have access to this tenant
-        HTTPException 404: If tenant not found
-        HTTPException 400: If domain already exists
-        HTTPException 500: If unexpected error occurs
-    """
-    logger.info(f"User {current_user.id} adding domains to tenant {tenant_id}")
-
-    try:
-        # Verify tenant exists and user has access
-        result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
-        tenant = result.scalar_one_or_none()
-
-        if not tenant:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found"
-            )
-
-        if str(current_user.tenant_id) != str(tenant_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User does not have access to this tenant",
-            )
-
-        # Check for duplicates
-        existing_domains = set(tenant.allowed_domains or [])
-        new_domains = request.domains
-        
-        duplicates = [domain for domain in new_domains if domain in existing_domains]
-        if duplicates:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Domains already exist: {', '.join(duplicates)}",
-            )
-
-        # Add new domains
-        updated_domains = list(existing_domains) + new_domains
-        tenant.allowed_domains = updated_domains
-        
-        await db.commit()
-        await db.refresh(tenant)
-
-        logger.info(f"Added {len(new_domains)} domains to tenant {tenant_id}")
-
-        return AllowedDomainsListResponse(
-            domains=tenant.allowed_domains or [],
-            count=len(tenant.allowed_domains or []),
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        await db.rollback()
-        logger.error(f"Failed to add domains to tenant {tenant_id}: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to add allowed domains",
-        )
-
-
-@router.delete("/tenants/{tenant_id}/allowed-domains/{domain}", response_model=AllowedDomainsListResponse)
-async def remove_allowed_domain(
-    tenant_id: uuid.UUID,
-    domain: str,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_rls_session),
-):
-    """
-    Remove a domain from a tenant's allowed domains list.
-
-    Args:
-        tenant_id: The tenant ID
-        domain: The domain to remove
-        current_user: Authenticated admin user
-        db: RLS-scoped database session
-
-    Returns:
-        AllowedDomainsListResponse with updated list of allowed domains
-
-    Raises:
-        HTTPException 403: If user doesn't have access to this tenant
-        HTTPException 404: If tenant not found or domain not in list
-        HTTPException 500: If unexpected error occurs
-    """
-    logger.info(f"User {current_user.id} removing domain '{domain}' from tenant {tenant_id}")
-
-    try:
-        # Verify tenant exists and user has access
-        result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
-        tenant = result.scalar_one_or_none()
-
-        if not tenant:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found"
-            )
-
-        if str(current_user.tenant_id) != str(tenant_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User does not have access to this tenant",
-            )
-
-        current_domains = tenant.allowed_domains or []
-        
-        # Check if domain exists
-        if domain not in current_domains:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Domain '{domain}' not found in allowed domains",
-            )
-
-        # Remove domain
-        updated_domains = [d for d in current_domains if d != domain]
-        tenant.allowed_domains = updated_domains
-        
-        await db.commit()
-        await db.refresh(tenant)
-
-        logger.info(f"Removed domain '{domain}' from tenant {tenant_id}")
-
-        return AllowedDomainsListResponse(
-            domains=tenant.allowed_domains or [],
-            count=len(tenant.allowed_domains or []),
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        await db.rollback()
-        logger.error(f"Failed to remove domain from tenant {tenant_id}: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to remove allowed domain",
-        )
+        ) from e

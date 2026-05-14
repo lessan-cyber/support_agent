@@ -1,5 +1,5 @@
 // app/dashboard/documents/page.tsx
-"use client"
+"use client";
 
 import * as React from "react"
 import { useState, useEffect } from "react"
@@ -28,10 +28,13 @@ import { DocumentsEmptyState } from "@/components/dashboard/documents/documents-
 import { PdfPreviewModal } from "@/components/dashboard/documents/pdf-preview-modal"
 import { toast } from "sonner"
 import { 
+  deleteDocument,
   // getDocuments, 
   // deleteDocument, 
   // updateDocument, 
-  getAllDocuments 
+  getAllDocuments, 
+  getDocuments,
+  updateDocument
 } from "@/app/actions/upload_document"
 import {
   Pagination,
@@ -55,64 +58,58 @@ interface Document {
 }
 
 interface DocumentsResponse {
-  documents: Document[]
-  total: number
-  page: number
-  limit: number
-  totalPages: number
+    documents: Document[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
 }
 const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || "http://localhost:8000"
 export default function DocumentsPage() {
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState("date-desc")
-  const [dateFilter, setDateFilter] = useState("all")
-  const [currentPage, setCurrentPage] = useState(1)
-  const [documents, setDocuments] = useState<Document[]>([])
-  const [totalDocuments, setTotalDocuments] = useState(0)
-  const [totalPages, setTotalPages] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [previewDocument, setPreviewDocument] = useState<Document | null>(null)
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+    const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [sortBy, setSortBy] = useState("date-desc");
+    const [dateFilter, setDateFilter] = useState("all");
+    const [currentPage, setCurrentPage] = useState(1);
+    const [documents, setDocuments] = useState<Document[]>([]);
+    const [totalDocuments, setTotalDocuments] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [previewDocument, setPreviewDocument] = useState<Document | null>(
+        null,
+    );
+    const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
-const limit = 2          
+    const limit = 2          
+    const latestRequestIdRef = React.useRef(0);
 
-  // Fetch documents
-  // const fetchDocuments = async () => {
-  //   setLoading(true)
-  //   try {
-  //     const data = await getDocuments({
-  //       page: currentPage,
-  //       limit,
-  //       sort: sortBy,
-  //       date_filter: dateFilter,
-  //       search: searchQuery,
-  //     })
-      
-  //     setDocuments(data.documents)
-  //     setTotalDocuments(data.total)
-  //     setTotalPages(data.totalPages)
-  //   } catch (error) {
-  //     toast.error("Failed to load documents. Please try again.")
-  //   } finally {
-  //     setLoading(false)
-  //   }
-  // }
+    const fetchDocuments = React.useCallback(async () => {
+        const requestId = ++latestRequestIdRef.current;
+        setLoading(true);
+        try {
+            const response = await getDocuments({
+                page: currentPage,
+                limit,
+                sort: sortBy,
+                date_filter: dateFilter,
+                search: searchQuery,
+            });
 
-  const fetchDocuments = async () => {
-    setLoading(true)
-    try {
-      const response = await getAllDocuments()
+            // Only update state if this is the latest request
+        if (requestId !== latestRequestIdRef.current) return;
 
       setDocuments(response.documents)
       setTotalDocuments(response.count)
       setTotalPages(Math.ceil(response.count / limit))
     } catch (error) {
-      toast.error("Failed to load documents. Please try again.", { position: "bottom-right" })
+      if (error instanceof Error) {
+        toast.error(`Failed to load documents: ${error.message}`, { position: "bottom-right" })
+        return
+      }
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentPage, limit, sortBy, dateFilter, searchQuery])
 
   useEffect(() => {
     fetchDocuments()
@@ -148,15 +145,15 @@ const limit = 2
         }
       )
 
-      if (!response.ok) throw new Error("Failed to delete")
+      if (!response.ok) throw new Error("Delete failed")
 
       setDocuments(documents.filter((doc) => doc.id !== documentId))
       setTotalDocuments(totalDocuments - 1)
-
-      toast.success("Document deleted successfully.")
     } catch (error) {
+      if (error instanceof Error) {
+        toast.error(`Failed to delete document: ${error.message}`, { position: "bottom-right" })
+      }
       toast.error("Failed to delete document.", { position: "bottom-right" })
-      
     }
   }
 
@@ -172,36 +169,28 @@ const limit = 2
         }
       )
 
-      if (!response.ok) throw new Error("Failed to rename")
+      if (!response.ok) throw new Error("Rename failed")
 
       setDocuments(
-        documents.map((doc) =>
-          doc.id === documentId ? { ...doc, filename: newName } : doc
-        )
+        documents.map((doc) => (doc.id === documentId ? { ...doc, filename: newName } : doc))
       )
-
-      toast.success("Document renamed successfully.")
     } catch (error) {
-      toast.error("Failed to rename document.", { position: "bottom-right" })
+      if (error instanceof Error) {
+        toast.error(`Failed to rename document: ${error.message}`, { position: "bottom-right" })
+      }
     }
   }
 
-  const handleShare = async (documentId: string) => {
-    try {
-      const document = documents.find((doc) => doc.id === documentId)
-      if (!document) return
+    useEffect(() => {
+        fetchDocuments();
+    }, [currentPage, sortBy, dateFilter, searchQuery, fetchDocuments]);
 
-      await navigator.clipboard.writeText(document.download_url)
-
-      toast.info("Document link copied to clipboard.", { position: "bottom-right" })
-    } catch (error) {
-      toast.error("Failed to copy link.", { position: "bottom-right" })
+    const handlePreview = (document: Document) => {
+        setPreviewDocument(document);
     }
-  }
 
-  const handlePreview = (document: Document) => {
-    setPreviewDocument(document)
-  }
+
+
 
   return (
     <div className="flex flex-col h-full space-y-6 m-4">
@@ -299,8 +288,8 @@ const limit = 2
                 document={document}
                 onDownload={handleDownload}
                 onDelete={handleDelete}
-                onRename={handleRename}
-                onShare={handleShare}
+                // onRename={handleRename}
+                // onShare={handleShare}
                 onPreview={handlePreview}
               />
             ))}
