@@ -290,7 +290,7 @@ async def get_conversation_list(
         )
 
         # Apply filters
-        filters = []
+        filters = [Ticket.tenant_id == current_user.tenant_id]
         if params.client_email:
             filters.append(Ticket.user_email == params.client_email)
         if params.status:
