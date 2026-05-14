@@ -40,15 +40,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { formatDistanceToNow } from "date-fns"
-
-interface Document {
-  id: string
-  filename: string
-  size: number
-  uploaded_at: string
-  url: string
-}
+import { Document, formatFileSize, formatDate } from "@/lib/document-utils"
 
 interface DocumentCardProps {
   document: Document
@@ -71,12 +63,6 @@ export function DocumentCard({
   const [showRenameDialog, setShowRenameDialog] = React.useState(false)
   const [newName, setNewName] = React.useState(document.filename)
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + " B"
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB"
-    return (bytes / (1024 * 1024)).toFixed(2) + " MB"
-  }
-
   const handleRename = () => {
     if (newName && newName !== document.filename) {
       onRename(document.id, newName)
@@ -84,21 +70,15 @@ export function DocumentCard({
     setShowRenameDialog(false)
   }
 
-  const formatDate = (date: string) => {
-    try {
-      return formatDistanceToNow(new Date(date), { addSuffix: true })
-    } catch {
-      return "Recently"
-    }
-  }
-
   return (
     <>
       <Card className="group hover:shadow-md transition-shadow cursor-pointer">
         <CardContent className="p-4">
           {/* PDF Preview Thumbnail */}
-          <div 
-            className="aspect-[3/4] bg-gradient-to-br from-red-50 to-red-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden"
+          <button
+            type="button"
+            aria-label={`Preview ${document.filename}`}
+            className="aspect-[3/4] bg-gradient-to-br from-red-50 to-red-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden w-full [border:none] [background:none] p-0 cursor-pointer"
             onClick={() => onPreview(document)}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-red-100/50 to-red-200/50" />
@@ -106,7 +86,7 @@ export function DocumentCard({
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
               <Eye className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-          </div>
+          </button>
 
           {/* Document Info */}
           <div className="space-y-2">
