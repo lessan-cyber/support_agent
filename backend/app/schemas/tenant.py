@@ -1,7 +1,7 @@
 """Pydantic schemas for tenant-related operations."""
 
 import re
-from typing import List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -33,21 +33,42 @@ class AllowedDomainResponse(AllowedDomainBase):
 class AllowedDomainsListResponse(BaseModel):
     """Schema for listing allowed domains."""
 
-    tenant_id: str = Field(..., description="Tenant ID")
-    domains: List[str] = Field(..., description="List of allowed domains")
+    tenant_id: UUID = Field(..., description="Tenant ID")
+    domains: list[str] = Field(..., description="List of allowed domains")
     count: int = Field(..., description="Total count of allowed domains")
 
 
 class AllowedDomainUpdateRequest(BaseModel):
     """Schema for updating an existing domain."""
+
     old_domain: str = Field(..., description="Existing domain to be replaced")
     new_domain: str = Field(..., description="New domain to replace the old one")
+
+    @field_validator("new_domain")
+    @classmethod
+    def validate_new_domain(cls, domain: str) -> str:
+        """Validate and sanitize the new domain."""
+        domain_regex = re.compile(
+            r"^(?!.*\.\.)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$"
+        )
+
+        # Strip whitespace and scheme
+        sanitized = domain.strip()
+        sanitized = re.sub(r"^https?://", "", sanitized)
+        sanitized = sanitized.split("/")[0]
+
+        if not domain_regex.match(sanitized):
+            raise ValueError(
+                f"Invalid domain format: '{domain}' (sanitized: '{sanitized}')"
+            )
+
+        return sanitized
 
 
 class AllowedDomainAddRequest(BaseModel):
     """Schema for adding one or more domains."""
 
-    domains: List[str] = Field(..., min_items=1, description="List of domains to add")
+    domains: list[str] = Field(..., min_items=1, description="List of domains to add")
 
     @field_validator("domains")
     @classmethod

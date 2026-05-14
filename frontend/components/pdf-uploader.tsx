@@ -12,12 +12,26 @@ import { uploadDocument } from "@/app/actions/upload_document"
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
-export function PdfUploader() {
+interface PdfUploaderProps {
+  onCancel?: () => void
+}
+
+export function PdfUploader({ onCancel }: PdfUploaderProps = {}) {
   const router = useRouter()
   const [file, setFile] = React.useState<File | null>(null)
   const [uploading, setUploading] = React.useState(false)
   const [progress, setProgress] = React.useState(0)
   const [error, setError] = React.useState<string | null>(null)
+  const progressIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+
+  React.useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+        progressIntervalRef.current = null
+      }
+    }
+  }, [])
 
   const onDrop = React.useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
     setError(null)
@@ -66,20 +80,25 @@ export function PdfUploader() {
     formData.append("file", file)
 
     try {
-      // Simulation de progression (à adapter selon votre API)
-      const progressInterval = setInterval(() => {
+      progressIntervalRef.current = setInterval(() => {
         setProgress((prev) => {
           if (prev >= 90) {
-            clearInterval(progressInterval)
+            if (progressIntervalRef.current) {
+              clearInterval(progressIntervalRef.current)
+              progressIntervalRef.current = null
+            }
             return 90
           }
           return prev + 10
         })
       }, 200)
 
-      const data = await uploadDocument(formData)
+      await uploadDocument(formData)
 
-      clearInterval(progressInterval)
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+        progressIntervalRef.current = null
+      }
       setProgress(100)
 
       toast.success("Your document has been uploaded successfully.")
@@ -89,6 +108,10 @@ export function PdfUploader() {
         router.push("/dashboard/documents")
       }, 500)
     } catch (err) {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+        progressIntervalRef.current = null
+      }
       setError(err instanceof Error ? err.message : "Upload failed. Please try again.")
       setProgress(0)
       
@@ -175,7 +198,7 @@ export function PdfUploader() {
           variant="outline"
           onClick={() => {
             removeFile()
-            // Fermer le dialog
+            onCancel?.()
           }}
           disabled={uploading}
         >
