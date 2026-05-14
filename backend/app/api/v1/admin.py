@@ -14,7 +14,6 @@ from app.api.deps import (
     get_rls_session,
 )
 from app.models.message import Message, SenderType
-from app.models.tenant import Tenant
 from app.models.ticket import Ticket, TicketStatus
 from app.models.user import User
 from app.schemas.chat import (
@@ -621,6 +620,12 @@ async def add_allowed_domains(
 
     except HTTPException:
         raise
+    except ValueError as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
     except Exception as e:
         await db.rollback()
         logger.error(f"Failed to add domains to tenant {tenant_id}: {e}", exc_info=True)
