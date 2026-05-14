@@ -1,8 +1,10 @@
 """Tenant service layer for domain management operations."""
 
 from typing import List, Optional
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.tenant import Tenant
 from app.utils.logging_config import logger
 
@@ -11,9 +13,7 @@ class TenantService:
     """Service class for tenant-related operations."""
 
     @staticmethod
-    async def get_tenant_by_id(
-        tenant_id: str, db: AsyncSession
-    ) -> Optional[Tenant]:
+    async def get_tenant_by_id(tenant_id: str, db: AsyncSession) -> Optional[Tenant]:
         """Get tenant by ID."""
         result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
         return result.scalar_one_or_none()
@@ -29,9 +29,7 @@ class TenantService:
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_allowed_domains(
-        tenant_id: str, db: AsyncSession
-    ) -> List[str]:
+    async def get_allowed_domains(tenant_id: str, db: AsyncSession) -> List[str]:
         """Get list of allowed domains for a tenant."""
         tenant = await TenantService.get_tenant_by_id(tenant_id, db)
         if tenant:
@@ -58,15 +56,17 @@ class TenantService:
             seen.add(domain)
 
         if duplicates:
-            raise ValueError(f"Duplicate domains: {', '.join(dict.fromkeys(duplicates))}")
+            raise ValueError(
+                f"Duplicate domains: {', '.join(dict.fromkeys(duplicates))}"
+            )
 
         tenant.allowed_domains = current + domains
-        
         await db.commit()
+
         await db.refresh(tenant)
-        
+
         logger.info(f"Added {len(domains)} domains to tenant {tenant_id}")
-        
+
         return tenant.allowed_domains or []
 
     @staticmethod
@@ -79,24 +79,28 @@ class TenantService:
             raise ValueError(f"Tenant {tenant_id} not found")
 
         current_domains = tenant.allowed_domains or []
-        
+
         # Check if old domain exists
         if old_domain not in current_domains:
             raise ValueError(f"Domain '{old_domain}' not found in allowed domains")
-        
+
         # Check if new domain already exists
         if new_domain in current_domains:
             raise ValueError(f"Domain '{new_domain}' already exists in allowed domains")
 
         # Update domain
-        updated_domains = [new_domain if d == old_domain else d for d in current_domains]
+        updated_domains = [
+            new_domain if d == old_domain else d for d in current_domains
+        ]
         tenant.allowed_domains = updated_domains
-        
+
         await db.commit()
         await db.refresh(tenant)
-        
-        logger.info(f"Updated domain '{old_domain}' to '{new_domain}' for tenant {tenant_id}")
-        
+
+        logger.info(
+            f"Updated domain '{old_domain}' to '{new_domain}' for tenant {tenant_id}"
+        )
+
         return tenant.allowed_domains or []
 
     @staticmethod
@@ -109,7 +113,7 @@ class TenantService:
             raise ValueError(f"Tenant {tenant_id} not found")
 
         current_domains = tenant.allowed_domains or []
-        
+
         # Check if domain exists
         if domain not in current_domains:
             raise ValueError(f"Domain '{domain}' not found in allowed domains")
@@ -117,10 +121,10 @@ class TenantService:
         # Remove domain
         updated_domains = [d for d in current_domains if d != domain]
         tenant.allowed_domains = updated_domains
-        
+
         await db.commit()
         await db.refresh(tenant)
-        
+
         logger.info(f"Removed domain '{domain}' from tenant {tenant_id}")
-        
+
         return tenant.allowed_domains or []
