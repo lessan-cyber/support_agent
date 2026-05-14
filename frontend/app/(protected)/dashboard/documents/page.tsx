@@ -8,8 +8,7 @@ import {
   Filter, 
   Grid3x3, 
   List, 
-  Plus,
-  Loader2
+  Plus
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -45,6 +44,7 @@ import {
 } from "@/components/ui/pagination"
 import { get } from "http"
 import { set } from "zod"
+import { DocumentsGridSkeleton, DocumentsTableSkeleton } from "@/components/dashboard/documents/document-skeleton"
 
 interface Document {
   id: string
@@ -75,7 +75,7 @@ export default function DocumentsPage() {
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
 
-const limit = 1          
+const limit = 2          
 
   // Fetch documents
   // const fetchDocuments = async () => {
@@ -237,7 +237,7 @@ const limit = 1
         </div>
 
         <Select value={dateFilter} onValueChange={setDateFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-45">
             <Filter className="mr-2 h-4 w-4" />
             <SelectValue placeholder="Filter by date" />
           </SelectTrigger>
@@ -284,9 +284,11 @@ const limit = 1
       {/* Content */}
       <div className="flex-1">
         {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
+          viewMode === "grid" ? (
+            <DocumentsGridSkeleton count={2} />
+          ) : (
+            <DocumentsTableSkeleton count={2} />
+          )
         ) : documents.length === 0 ? (
           <DocumentsEmptyState onUploadClick={() => setUploadDialogOpen(true)} />
         ) : viewMode === "grid" ? (
