@@ -5,7 +5,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from langgraph.types import Command
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.constructor import get_runnable
@@ -249,49 +249,42 @@ async def get_conversation_list(
     )
 
     try:
-        # Subquery: rank messages per ticket by recency
-        latest_message_subquery = select(
-            Message.ticket_id,
-            Message.content,
-            Message.sender_type,
-            Message.created_at,
-            func.row_number()
-            .over(
-                partition_by=Message.ticket_id,
-                order_by=Message.created_at.desc(),
+        # LATERAL subquery: latest message per ticket (single index lookup per ticket)
+        latest_message = (
+            select(
+                Message.content.label("last_message_content"),
+                Message.sender_type.label("last_message_sender"),
+                Message.created_at.label("last_message_at"),
             )
-            .label("rn"),
-        ).subquery("latest_messages")
+            .where(Message.ticket_id == Ticket.id)
+            .order_by(Message.created_at.desc())
+            .limit(1)
+            .lateral("latest_message")
+        )
 
-        # Main query: tickets with latest message and count in single query
+        # LATERAL subquery: message count per ticket
+        message_count = (
+            select(func.count().label("message_count"))
+            .where(Message.ticket_id == Ticket.id)
+            .lateral("message_count")
+        )
+
+        # Main query: tickets with latest message and count via LATERAL joins
+        # LATERAL avoids scanning all messages and eliminates the need for GROUP BY
         query = (
             select(
                 Ticket.id,
                 Ticket.status,
                 Ticket.user_email,
                 Ticket.created_at,
-                func.count(Message.id).label("message_count"),
-                latest_message_subquery.c.content.label("last_message_content"),
-                latest_message_subquery.c.sender_type.label("last_message_sender"),
-                latest_message_subquery.c.created_at.label("last_message_at"),
+                message_count.c.message_count,
+                latest_message.c.last_message_content,
+                latest_message.c.last_message_sender,
+                latest_message.c.last_message_at,
             )
-            .outerjoin(Message, Message.ticket_id == Ticket.id)
-            .outerjoin(
-                latest_message_subquery,
-                and_(
-                    Ticket.id == latest_message_subquery.c.ticket_id,
-                    latest_message_subquery.c.rn == 1,
-                ),
-            )
-            .group_by(
-                Ticket.id,
-                Ticket.status,
-                Ticket.user_email,
-                Ticket.created_at,
-                latest_message_subquery.c.content,
-                latest_message_subquery.c.sender_type,
-                latest_message_subquery.c.created_at,
-            )
+            .select_from(Ticket)
+            .outerjoin(latest_message, true())
+            .outerjoin(message_count, true())
         )
 
         # Apply filters
