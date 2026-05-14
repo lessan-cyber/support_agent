@@ -3,6 +3,8 @@
 import asyncio
 import uuid
 
+BOUNDED_CONCURRENCY = 5
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -59,7 +61,12 @@ class DocumentService:
                 tenant_id=file.tenant_id,
             )
 
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
+            logger.error(f"Failed to process file {file.id}: {e}")
+            return None
+        except asyncio.CancelledError:
+            raise
+        except RuntimeError as e:
             logger.error(f"Failed to process file {file.id}: {e}")
             return None
 
@@ -91,11 +98,16 @@ class DocumentService:
 
         supabase_client = await supabase_admin()
 
+        semaphore = asyncio.Semaphore(BOUNDED_CONCURRENCY)
+
+        async def bounded_build(file: File) -> DocumentResponse | None:
+            async with semaphore:
+                return await DocumentService._build_document_response(
+                    file, supabase_client
+                )
+
         results = await asyncio.gather(
-            *[
-                DocumentService._build_document_response(file, supabase_client)
-                for file in files
-            ]
+            *[bounded_build(file) for file in files]
         )
 
         document_responses = [r for r in results if r is not None]

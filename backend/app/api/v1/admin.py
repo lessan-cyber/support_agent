@@ -625,6 +625,7 @@ async def add_allowed_domains(
         raise
     except ValueError as e:
         await db.rollback()
+        logger.warning(f"Failed to add domains to tenant {tenant_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
