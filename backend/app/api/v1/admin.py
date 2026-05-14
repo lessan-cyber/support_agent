@@ -14,6 +14,7 @@ from app.api.deps import (
     get_rls_session,
 )
 from app.models.message import Message, SenderType
+from app.models.tenant import Tenant
 from app.models.ticket import Ticket, TicketStatus
 from app.models.user import User
 from app.schemas.chat import (
@@ -486,6 +487,7 @@ async def update_preferences(
         )
 
         # Merge with provided values (only non-None fields)
+
         update_data = request.model_dump(exclude_none=True)
         current_prefs.update(update_data)
 
@@ -612,7 +614,7 @@ async def add_allowed_domains(
         logger.info(f"Added {len(request.domains)} domains to tenant {tenant_id}")
 
         return AllowedDomainsListResponse(
-            tenant_id=str(tenant_id),
+            tenant_id=tenant_id,
             domains=domains,
             count=len(domains),
         )
@@ -672,7 +674,7 @@ async def remove_allowed_domain(
         logger.info(f"Removed domain '{domain}' from tenant {tenant_id}")
 
         return AllowedDomainsListResponse(
-            tenant_id=str(tenant_id),
+            tenant_id=tenant_id,
             domains=domains,
             count=len(domains),
         )
@@ -738,7 +740,7 @@ async def update_allowed_domain(
         )
 
         return AllowedDomainsListResponse(
-            tenant_id=str(tenant_id),
+            tenant_id=tenant_id,
             domains=domains,
             count=len(domains),
         )

@@ -35,6 +35,9 @@ import { useRouter, usePathname } from "next/navigation";
 import { useUser } from "@/hooks/use-user";
 import { signOut } from "@/app/actions/auth";
 
+
+
+
 // This is sample data
 const data = {
     user: {
