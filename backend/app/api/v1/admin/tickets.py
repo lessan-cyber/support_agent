@@ -1,0 +1,144 @@
+"""Ticket admin endpoints."""
+
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from langgraph.types import Command
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.agent.constructor import get_runnable
+from app.api.deps import get_current_user, get_rls_session
+from app.models.message import Message, SenderType
+from app.models.ticket import Ticket, TicketStatus
+from app.models.user import User
+from app.schemas.chat import AdminResolveRequest
+from app.services.cache import semantic_cache
+from app.services.embeddings import get_embedding_model
+from app.utils.logging_config import logger
+
+router = APIRouter()
+
+
+@router.post("/{ticket_id}/resume", response_model=dict)
+async def resume_ticket(
+    ticket_id: uuid.UUID,
+    resume_request: AdminResolveRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_rls_session),
+):
+    """
+    Resume a paused LangGraph thread with human-provided answer.
+
+    Only authenticated admin users with proper tenant access can resume tickets.
+
+    Args:
+        ticket_id: The ID of the ticket to resume
+        resume_request: Contains human agent's answer and notification preferences
+        current_user: Authenticated admin user
+        db: RLS-scoped database session
+
+    Returns:
+        Confirmation of successful resume
+    """
+    logger.info(f"Resuming ticket {ticket_id}")
+
+    try:
+        result = await db.execute(
+            select(Ticket).where(
+                Ticket.id == ticket_id,
+                Ticket.tenant_id == current_user.tenant_id,
+            )
+        )
+        ticket = result.scalar_one_or_none()
+
+        if not ticket:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
+            )
+
+        if ticket.status != TicketStatus.PENDING_HUMAN:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Ticket is not in pending_human status. Current status: {ticket.status}",
+            )
+
+        runnable = get_runnable()
+        config = {"configurable": {"thread_id": str(ticket_id)}}
+
+        logger.info(f"Resuming graph for ticket {ticket_id} with answer")
+        _final_state = await runnable.ainvoke(
+            Command(resume=resume_request.answer),
+            config=config,
+        )
+
+        logger.info(f"Graph resumed successfully for ticket {ticket_id}")
+
+        ticket.status = TicketStatus.RESOLVED
+        await db.commit()
+
+        logger.info(f"Ticket {ticket_id} marked as RESOLVED")
+
+        human_message = Message(
+            ticket_id=ticket_id,
+            tenant_id=ticket.tenant_id,
+            sender_type=SenderType.HUMAN_AGENT,
+            content=resume_request.answer,
+        )
+        db.add(human_message)
+        await db.commit()
+
+        try:
+            message_query = (
+                select(Message.content)
+                .where(
+                    Message.ticket_id == ticket_id,
+                    Message.sender_type == SenderType.USER,
+                )
+                .order_by(Message.created_at.desc())
+                .limit(1)
+            )
+
+            message_result = await db.execute(message_query)
+            original_question = message_result.scalar()
+
+            if original_question:
+                embedding_model = get_embedding_model()
+                question_embedding = await embedding_model.aembed_query(
+                    original_question
+                )
+
+                await semantic_cache.cache_response(
+                    tenant_id=str(ticket.tenant_id),
+                    query_embedding=question_embedding,
+                    query_text=original_question,
+                    response=resume_request.answer,
+                )
+                logger.info(
+                    f"Cached human resolution for question: '{original_question[:50]}...' for future use"
+                )
+            else:
+                logger.warning(
+                    f"Could not find original question for ticket {ticket_id}"
+                )
+        except Exception as e:
+            logger.error(f"Failed to cache human resolution: {e}", exc_info=True)
+
+        if resume_request.notify_email:
+            logger.info(f"Email notification requested for ticket {ticket_id}")
+
+        return {
+            "success": True,
+            "message": "Ticket resumed successfully",
+            "ticket_id": str(ticket_id),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to resume ticket {ticket_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to resume ticket",
+        ) from e
