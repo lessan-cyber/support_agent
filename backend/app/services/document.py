@@ -26,9 +26,9 @@ class DocumentService:
                 supabase_client.storage.from_(
                     settings.KNOWLEDGE_BASE_BUCKET
                 ).create_signed_url(file.storage_path, 86400),
-                supabase_client.storage.from_(
-                    settings.KNOWLEDGE_BASE_BUCKET
-                ).info(file.storage_path),
+                supabase_client.storage.from_(settings.KNOWLEDGE_BASE_BUCKET).info(
+                    file.storage_path
+                ),
                 return_exceptions=True,
             )
 
@@ -39,9 +39,9 @@ class DocumentService:
                 return None
 
             if isinstance(signed_url_data, dict):
-                signed_url = signed_url_data.get(
-                    "signedURL"
-                ) or signed_url_data.get("signed_url")
+                signed_url = signed_url_data.get("signedURL") or signed_url_data.get(
+                    "signed_url"
+                )
             else:
                 signed_url = str(signed_url_data)
 
