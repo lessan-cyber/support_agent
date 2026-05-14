@@ -28,7 +28,7 @@ class DocumentService:
                 ).create_signed_url(file.storage_path, 86400),
                 supabase_client.storage.from_(
                     settings.KNOWLEDGE_BASE_BUCKET
-                ).get_file_info(file.storage_path),
+                ).info(file.storage_path),
                 return_exceptions=True,
             )
 
@@ -46,8 +46,8 @@ class DocumentService:
                 signed_url = str(signed_url_data)
 
             file_size = 0
-            if not isinstance(file_info, Exception):
-                file_size = file_info.size if hasattr(file_info, "size") else 0
+            if isinstance(file_info, dict):
+                file_size = file_info.get("metadata", {}).get("size", 0) or 0
 
             return DocumentResponse(
                 id=file.id,
