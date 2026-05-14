@@ -66,8 +66,13 @@ async def resume_ticket(
     logger.info(f"Resuming ticket {ticket_id}")
 
     try:
-        # 1. Validate ticket status (RLS ensures tenant isolation)
-        result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
+        # 1. Validate ticket status and tenant access
+        result = await db.execute(
+            select(Ticket).where(
+                Ticket.id == ticket_id,
+                Ticket.tenant_id == current_user.tenant_id,
+            )
+        )
         ticket = result.scalar_one_or_none()
 
         if not ticket:
@@ -390,8 +395,13 @@ async def get_conversation_messages(
     logger.info(f"Admin {current_user.id} requesting messages for ticket {ticket_id}")
 
     try:
-        # Verify ticket exists (RLS ensures tenant isolation)
-        ticket_result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
+        # Verify ticket exists and belongs to current tenant
+        ticket_result = await db.execute(
+            select(Ticket).where(
+                Ticket.id == ticket_id,
+                Ticket.tenant_id == current_user.tenant_id,
+            )
+        )
         ticket = ticket_result.scalar_one_or_none()
 
         if not ticket:
