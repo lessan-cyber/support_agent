@@ -28,7 +28,12 @@ import { DocumentsTable } from "@/components/dashboard/documents/documents-table
 import { DocumentsEmptyState } from "@/components/dashboard/documents/documents-empty-state"
 import { PdfPreviewModal } from "@/components/dashboard/documents/pdf-preview-modal"
 import { toast } from "sonner"
-import { getDocuments, deleteDocument, updateDocument, getAllDocuments } from "@/app/actions/upload_document"
+import { 
+  // getDocuments, 
+  // deleteDocument, 
+  // updateDocument, 
+  getAllDocuments 
+} from "@/app/actions/upload_document"
 import {
   Pagination,
   PaginationContent,
@@ -44,9 +49,9 @@ import { set } from "zod"
 interface Document {
   id: string
   filename: string
-  size: number
-  uploaded_at: string
-  url: string
+  file_size: number
+  created_at: string
+  download_url: string
 }
 
 interface DocumentsResponse {
@@ -56,7 +61,7 @@ interface DocumentsResponse {
   limit: number
   totalPages: number
 }
-
+const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || "http://localhost:8000"
 export default function DocumentsPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [searchQuery, setSearchQuery] = useState("")
@@ -70,7 +75,7 @@ export default function DocumentsPage() {
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
 
-const limit = 12          
+const limit = 1          
 
   // Fetch documents
   // const fetchDocuments = async () => {
@@ -100,8 +105,10 @@ const limit = 12
       const response = await getAllDocuments()
 
       setDocuments(response.documents)
+      setTotalDocuments(response.count)
+      setTotalPages(Math.ceil(response.count / limit))
     } catch (error) {
-      toast.error("Failed to load documents. Please try again.")
+      toast.error("Failed to load documents. Please try again.", { position: "bottom-right" })
     } finally {
       setLoading(false)
     }
@@ -114,7 +121,7 @@ const limit = 12
   // Handle document actions
   const handleDownload = async (doc: Document) => {
     try {
-      const response = await fetch(doc.url)
+      const response = await fetch(doc.download_url)
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement("a") as HTMLAnchorElement
@@ -127,14 +134,14 @@ const limit = 12
 
       toast.success("Document downloaded successfully.")
     } catch (error) {
-      toast.error("Failed to download document.")
+      toast.error("Failed to download document.", { position: "bottom-right" })
     }
   }
 
   const handleDelete = async (documentId: string) => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/v1/admin/documents/${documentId}`,
+        `${BACKEND_BASE_URL}/api/v1/admin/documents/${documentId}`,
         {
           method: "DELETE",
           credentials: "include",
@@ -156,7 +163,7 @@ const limit = 12
   const handleRename = async (documentId: string, newName: string) => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/v1/admin/documents/${documentId}`,
+        `${BACKEND_BASE_URL}/api/v1/admin/documents/${documentId}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -184,7 +191,7 @@ const limit = 12
       const document = documents.find((doc) => doc.id === documentId)
       if (!document) return
 
-      await navigator.clipboard.writeText(document.url)
+      await navigator.clipboard.writeText(document.download_url)
 
       toast.info("Document link copied to clipboard.", { position: "bottom-right" })
     } catch (error) {
@@ -197,7 +204,7 @@ const limit = 12
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full space-y-6 m-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -297,12 +304,13 @@ const limit = 12
             ))}
           </div>
         ) : (
+          
           <DocumentsTable
             documents={documents}
             onDownload={handleDownload}
             onDelete={handleDelete}
-            onRename={handleRename}
-            onShare={handleShare}
+            // onRename={handleRename}
+            // onShare={handleShare}
             onPreview={handlePreview}
           />
         )}
