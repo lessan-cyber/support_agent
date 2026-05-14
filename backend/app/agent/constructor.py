@@ -107,6 +107,7 @@ async def stream_response(
 
     pending_response = ""
     escalation_info = None
+    user_question = message
 
     try:
         async for event in runnable.astream_events(
@@ -152,9 +153,12 @@ async def stream_response(
                     messages = output.get("messages", [])
                     if messages:
                         cached_content = messages[0].content
-                        for i in range(0, len(cached_content), 3):
+                        for i in range(0, len(cached_content), 200):
                             yield json.dumps(
-                                {"type": "token", "content": cached_content[i : i + 3]}
+                                {
+                                    "type": "token",
+                                    "content": cached_content[i : i + 200],
+                                }
                             )
 
                         return  # End stream after cache hit
@@ -167,33 +171,45 @@ async def stream_response(
                 elif name == "grade_confidence":
                     confidence = output.get("confidence_score", 0.0)
                     if confidence >= 0.7 and pending_response:
-                        for i in range(0, len(pending_response), 3):
+                        for i in range(0, len(pending_response), 200):
                             yield json.dumps(
                                 {
                                     "type": "token",
-                                    "content": pending_response[i : i + 3],
+                                    "content": pending_response[i : i + 200],
                                 }
                             )
 
                     elif confidence < 0.7:
+                        bridge_message = (
+                            "I need to check this with an expert. "
+                            f"Ticket #{ticket_id} has been created. "
+                            "You will receive an email notification when we have an answer."
+                        )
                         escalation_info = {
                             "type": "escalation",
                             "ticket_id": ticket_id,
-                            "content": "I am not confident in my answer. Escalating to a human agent.",
+                            "user_question": user_question,
+                            "bridge_message": bridge_message,
+                            "content": bridge_message,
                         }
-                        # Don't yield yet, wait for interrupt to confirm
 
     except GraphInterrupt:
         logger.info(f"Graph interrupted for ticket {ticket_id}, sending escalation.")
         if escalation_info:
             yield json.dumps(escalation_info)
         else:
-            # Fallback escalation message
+            bridge_message = (
+                "I need to check this with an expert. "
+                f"Ticket #{ticket_id} has been created. "
+                "Your request is being processed."
+            )
             yield json.dumps(
                 {
                     "type": "escalation",
                     "ticket_id": ticket_id,
-                    "content": "I need to check this with an expert. Your request is being processed.",
+                    "user_question": user_question,
+                    "bridge_message": bridge_message,
+                    "content": bridge_message,
                 }
             )
 
