@@ -35,9 +35,6 @@ import { useRouter, usePathname } from "next/navigation";
 import { useUser } from "@/hooks/use-user";
 import { signOut } from "@/app/actions/auth";
 
-
-
-
 // This is sample data
 const data = {
     user: {
@@ -141,14 +138,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const pathname = usePathname();
 
     const [activeItem, setActiveItem] = React.useState(() => {
-        const match = data.navMain.find((item) => pathname.startsWith(item.url))
-        return match || data.navMain[0]
+        const match = data.navMain.find((item) =>
+            pathname.startsWith(item.url),
+        );
+        return match || data.navMain[0];
     });
 
     React.useEffect(() => {
-        const match = data.navMain.find((item) => pathname.startsWith(item.url))
-        if (match) setActiveItem(match)
-    }, [pathname])
+        const match = data.navMain.find((item) =>
+            pathname.startsWith(item.url),
+        );
+        if (match) setActiveItem(match);
+    }, [pathname]);
 
     // Renomme lors de la destructuration
     const { user: currentUser, profile, loading } = useUser();
@@ -167,7 +168,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             await signOut();
         });
     };
-
     return (
         <Sidebar
             collapsible="icon"
@@ -305,20 +305,29 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse" />
                             <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
                         </div>
-                    ) : currentUser ? (() => {
-                        const displayName = currentUser.user_metadata?.name || currentUser.email?.split("@")[0] || "User";
-                        const avatarLabel = currentUser.user_metadata?.name || currentUser.email?.split("@")[0] || "U";
-                        return (
-                            <NavUser
-                                user={{
-                                    name: displayName,
-                                    email: currentUser.email || "",
-                                    avatar: avatarLabel,
-                                    avatarColor: getAvatarColor(avatarLabel),
-                                }}
-                            />
-                        );
-                    })() : (
+                    ) : currentUser ? (
+                        (() => {
+                            const displayName =
+                                currentUser.user_metadata?.name ||
+                                currentUser.email?.split("@")[0] ||
+                                "User";
+                            const avatarLabel =
+                                currentUser.user_metadata?.name ||
+                                currentUser.email?.split("@")[0] ||
+                                "U";
+                            return (
+                                <NavUser
+                                    user={{
+                                        name: displayName,
+                                        email: currentUser.email || "",
+                                        avatar: avatarLabel,
+                                        avatarColor:
+                                            getAvatarColor(avatarLabel),
+                                    }}
+                                />
+                            );
+                        })()
+                    ) : (
                         <div>Non connecté</div>
                     )}
                 </SidebarFooter>

@@ -28,10 +28,14 @@ export function StatsCards({ conversations }: StatsCardsProps) {
         {
             label: "Conversations aujourd'hui",
             value: stats.todayCount,
+            delta: "↑ +12 depuis hier",
+            deltaColor: "text-white",
         },
         {
             label: "Résolu par l'IA",
             value: `${stats.resolvedPct}%`,
+            delta: "↑ +3% cette semaine",
+            deltaColor: "text-white",
         },
         {
             label: "Escalades humaines",

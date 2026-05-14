@@ -62,9 +62,7 @@ export function TicketItem({
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                         <p className="text-sm font-semibold text-foreground truncate">
-                            {conversation.userEmail?.split("@")[0] ||
-                                conversation.userEmail ||
-                                "Unknown"}
+                            {conversation.userEmail.split("@")[0]}
                         </p>
                         {hasUrgentAttention && (
                             <span className="text-xs font-semibold text-amber-600">

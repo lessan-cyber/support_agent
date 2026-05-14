@@ -46,33 +46,13 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 const navItems = [
     {
         title: "Inbox",
-        url: "/dashboard/inbox/messages",
+        url: "/dashboard/inbox",
         icon: Inbox,
     },
     {
-        title: "Drafts",
-        url: "/dashboard/inbox/drafts",
-        icon: File,
-    },
-    {
-        title: "Sent",
-        url: "/dashboard/inbox/sent",
-        icon: Send,
-    },
-    {
-        title: "Junk",
-        url: "/dashboard/junk",
-        icon: ArchiveX,
-    },
-    {
-        title: "Trash",
-        url: "/dashboard/trash",
-        icon: Trash2,
-    },
-    {
-        title: "All Documents",
-        icon: FileInput,
+        title: "Documents",
         url: "/dashboard/documents",
+        icon: FileInput,
     },
 ];
 
