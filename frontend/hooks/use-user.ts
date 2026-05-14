@@ -72,5 +72,5 @@ export function useUser() {
     }
   }, [])
 
-  return { user, loading }
+  return { user, loading, profile: null as Record<string, any> | null }
 }

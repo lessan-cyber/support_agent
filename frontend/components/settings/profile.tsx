@@ -12,7 +12,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton"
 import {toast} from "sonner"
 import { useUser } from "@/hooks/use-user"
-import { get } from "http"
 
 interface ProfileData {
   name: string
