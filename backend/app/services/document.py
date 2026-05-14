@@ -3,16 +3,18 @@
 import asyncio
 import uuid
 
-BOUNDED_CONCURRENCY = 5
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from supabase import AsyncClient
 
 from app.config.supabase import supabase_admin
 from app.models.file import File
 from app.schemas.document import DocumentResponse
 from app.settings import settings
+from app.utils.file_validator import ALLOWED_CONTENT_TYPE
 from app.utils.logging_config import logger
+
+BOUNDED_CONCURRENCY = settings.DOCUMENT_CONCURRENCY_LIMIT
 
 
 class DocumentService:
@@ -20,7 +22,7 @@ class DocumentService:
 
     @staticmethod
     async def _build_document_response(
-        file: File, supabase_client
+        file: File, supabase_client: AsyncClient
     ) -> DocumentResponse | None:
         """Build a DocumentResponse for a single file with signed URL and metadata."""
         try:
@@ -46,7 +48,10 @@ class DocumentService:
                 )
             else:
                 signed_url = str(signed_url_data)
-
+            if isinstance(file_info, Exception):
+                logger.warning(
+                    f"Failed to fetch metadata for file {file.id}: {file_info}"
+                )
             file_size = 0
             if isinstance(file_info, dict):
                 file_size = file_info.get("metadata", {}).get("size", 0) or 0
@@ -57,7 +62,7 @@ class DocumentService:
                 created_at=file.created_at,
                 download_url=signed_url,
                 file_size=file_size,
-                content_type="application/pdf",
+                content_type=ALLOWED_CONTENT_TYPE,
                 tenant_id=file.tenant_id,
             )
 
@@ -107,10 +112,15 @@ class DocumentService:
                 )
 
         results = await asyncio.gather(
-            *[bounded_build(file) for file in files]
+            *[bounded_build(file) for file in files], return_exceptions=True
         )
 
-        document_responses = [r for r in results if r is not None]
+        document_responses = []
+        for r in results:
+            if isinstance(r, Exception):
+                logger.error(f"File processing failed: {r}")
+            elif r is not None:
+                document_responses.append(r)
 
         logger.info(f"Found {len(document_responses)} files for tenant {tenant_id}")
         return document_responses

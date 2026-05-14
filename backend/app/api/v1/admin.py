@@ -249,6 +249,36 @@ async def get_conversation_list(
     )
 
     try:
+        # Build shared filters (applied to both count and page queries)
+        filters = [Ticket.tenant_id == current_user.tenant_id]
+        if params.client_email:
+            filters.append(Ticket.user_email == params.client_email)
+        if params.status:
+            try:
+                status_filter = TicketStatus(params.status)
+            except ValueError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Invalid status filter: {params.status}",
+                ) from e
+            filters.append(Ticket.status == status_filter)
+        if params.start_date:
+            start_date_obj = datetime.fromisoformat(params.start_date).date()
+            filters.append(Ticket.created_at >= start_date_obj)
+        if params.end_date:
+            end_date_obj = datetime.fromisoformat(params.end_date).date()
+            filters.append(Ticket.created_at <= end_date_obj)
+
+        # Lightweight count: only hits tickets table (no LATERAL joins)
+        count_query = select(func.count()).select_from(Ticket).where(and_(*filters))
+        count_result = await db.execute(count_query)
+        total_count = count_result.scalar() or 0
+
+        if total_count == 0:
+            return ConversationListResponse(
+                conversations=[], total_count=0, limit=params.limit, offset=params.offset
+            )
+
         # LATERAL subquery: latest message per ticket (single index lookup per ticket)
         latest_message = (
             select(
@@ -269,8 +299,7 @@ async def get_conversation_list(
             .lateral("message_count")
         )
 
-        # Main query: tickets with latest message and count via LATERAL joins
-        # LATERAL avoids scanning all messages and eliminates the need for GROUP BY
+        # Full query: only built when there are results to fetch
         query = (
             select(
                 Ticket.id,
@@ -285,40 +314,11 @@ async def get_conversation_list(
             .select_from(Ticket)
             .outerjoin(latest_message, true())
             .outerjoin(message_count, true())
+            .where(and_(*filters))
+            .order_by(Ticket.created_at.desc())
+            .limit(params.limit)
+            .offset(params.offset)
         )
-
-        # Apply filters
-        filters = [Ticket.tenant_id == current_user.tenant_id]
-        if params.client_email:
-            filters.append(Ticket.user_email == params.client_email)
-        if params.status:
-            try:
-                status_filter = TicketStatus(params.status)
-            except ValueError as e:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"Invalid status filter: {params.status}",
-                ) from e
-            filters.append(Ticket.status == status_filter)
-        if params.start_date:
-            start_date_obj = datetime.fromisoformat(params.start_date).date()
-            filters.append(Ticket.created_at >= start_date_obj)
-        if params.end_date:
-            end_date_obj = datetime.fromisoformat(params.end_date).date()
-            filters.append(Ticket.created_at <= end_date_obj)
-
-        if filters:
-            query = query.where(and_(*filters))
-
-        # Get total count before pagination
-        count_subquery = query.subquery()
-        count_query = select(func.count()).select_from(count_subquery)
-        count_result = await db.execute(count_query)
-        total_count = count_result.scalar() or 0
-
-        # Apply ordering and pagination
-        query = query.order_by(Ticket.created_at.desc())
-        query = query.limit(params.limit).offset(params.offset)
 
         # Execute
         result = await db.execute(query)

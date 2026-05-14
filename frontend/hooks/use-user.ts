@@ -16,7 +16,7 @@ interface SimpleUser {
 /**
  * Custom hook to get the current authenticated user.
  * Uses Supabase client directly for real-time updates.
- * @returns {{ user: SimpleUser | null, loading: boolean }}
+ * @returns {{ user: SimpleUser | null, loading: boolean, profile: Record<string, any> | null }}
  */
 export function useUser() {
     const [user, setUser] = useState<SimpleUser | null>(null);
