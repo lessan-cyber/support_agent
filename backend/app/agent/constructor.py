@@ -3,6 +3,7 @@ from typing import AsyncGenerator, Optional
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import Runnable
+from langgraph.errors import GraphInterrupt
 from langgraph.graph import END, START, StateGraph
 
 from app.agent.nodes.cache_check import check_cache

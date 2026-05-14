@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.supabase import supabase_admin
 from app.models.file import File
-from app.models.user import User
 from app.schemas.document import DocumentResponse
 from app.settings import settings
 from app.utils.logging_config import logger
