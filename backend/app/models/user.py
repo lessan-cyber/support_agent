@@ -1,7 +1,9 @@
 """User model."""
 
 import enum
+import json
 import uuid
+from typing import TypedDict
 
 from sqlalchemy import Enum as EnumType
 from sqlalchemy import ForeignKey, String
@@ -16,6 +18,25 @@ from app.models.tenant import Tenant
 class UserRole(enum.Enum):
     ADMIN = "admin"
     AGENT = "agent"
+
+
+USER_DEFAULTS = {
+    "language": "en",
+    "timezone": "UTC",
+    "email_notifications": True,
+    "default_view": "grid",
+    "items_per_page": 12,
+    "auto_download": False,
+}
+
+
+class UserPreferencesDict(TypedDict):
+    language: str
+    timezone: str
+    email_notifications: bool
+    default_view: str
+    items_per_page: int
+    auto_download: bool
 
 
 class User(BaseModel, TimestampMixin):
@@ -48,18 +69,11 @@ class User(BaseModel, TimestampMixin):
     )
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="users")
 
-    preferences: Mapped[dict] = mapped_column(
+    preferences: Mapped[UserPreferencesDict] = mapped_column(
         JSONB,
         nullable=False,
-        default={
-            "language": "en",
-            "timezone": "UTC",
-            "email_notifications": True,
-            "default_view": "grid",
-            "items_per_page": 12,
-            "auto_download": False,
-        },
-        server_default='{"language": "en", "timezone": "UTC", "email_notifications": true, "default_view": "grid", "items_per_page": 12, "auto_download": false}',
+        default=lambda: dict(USER_DEFAULTS),
+        server_default=json.dumps(USER_DEFAULTS),
         comment="User preferences stored as JSON.",
     )
     name: Mapped[str] = mapped_column(
