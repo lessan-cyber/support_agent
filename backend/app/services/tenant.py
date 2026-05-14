@@ -62,6 +62,7 @@ class TenantService:
 
         tenant.allowed_domains = current + domains
         await db.commit()
+
         await db.refresh(tenant)
 
         logger.info(f"Added {len(domains)} domains to tenant {tenant_id}")
