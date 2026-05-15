@@ -214,7 +214,7 @@ export default function DataPage() {
         </CardHeader>
         <CardContent>
           <AlertDialog>
-            <AlertDialogTrigger asChild>
+            <AlertDialogTrigger>
               <Button variant="outline" className="border-orange-200 text-orange-600 hover:bg-orange-50">
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete All Documents
@@ -255,7 +255,7 @@ export default function DataPage() {
         </CardHeader>
         <CardContent>
           <AlertDialog>
-            <AlertDialogTrigger asChild>
+            <AlertDialogTrigger>
               <Button variant="destructive">
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete Account

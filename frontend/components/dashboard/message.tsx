@@ -42,11 +42,11 @@ function MessageFooter(date: string) {
     Sent on: {date}
     <div className="flex my-4 gap-4">
       <Button>
-        <ReplyIcon />
+        <Reply />
         <span className="">Reply</span>
       </Button>
       <Button className="ml-2">
-        <ForwardIcon />
+        <Forward />
         <span className="">Forward</span>
       </Button>
     </div>
