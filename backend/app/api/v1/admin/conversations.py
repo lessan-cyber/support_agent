@@ -53,10 +53,22 @@ async def get_conversation_list(
                 ) from e
             filters.append(Ticket.status == status_filter)
         if params.start_date:
-            start_date_obj = datetime.fromisoformat(params.start_date).date()
+            try:
+                start_date_obj = datetime.fromisoformat(params.start_date).date()
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Invalid start_date format: '{params.start_date}'. Expected ISO date (e.g. 2024-01-15).",
+                )
             filters.append(Ticket.created_at >= start_date_obj)
         if params.end_date:
-            end_date_obj = datetime.fromisoformat(params.end_date).date()
+            try:
+                end_date_obj = datetime.fromisoformat(params.end_date).date()
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Invalid end_date format: '{params.end_date}'. Expected ISO date (e.g. 2024-01-15).",
+                )
             filters.append(Ticket.created_at <= end_date_obj)
 
         count_query = (
