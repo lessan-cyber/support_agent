@@ -207,7 +207,7 @@ async def stream_response(
                             "bridge_message": bridge_message,
                             "content": bridge_message,
                         }
-
+                        yield json.dumps(escalation_info)
     except GraphInterrupt:
         logger.info(f"Graph interrupted for ticket {ticket_id}, sending escalation.")
         if escalation_info:
