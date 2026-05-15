@@ -3,11 +3,9 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from langgraph.types import Command
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.constructor import get_runnable
 from app.api.deps import get_current_user, get_rls_session
 from app.models.message import Message, SenderType
 from app.models.ticket import Ticket, TicketStatus
@@ -28,20 +26,25 @@ async def resume_ticket(
     db: AsyncSession = Depends(get_rls_session),
 ):
     """
-    Resume a paused LangGraph thread with human-provided answer.
+    Resolve an escalated ticket with a human-provided answer.
 
-    Only authenticated admin users with proper tenant access can resume tickets.
+    Does NOT resume the LangGraph thread — the graph replay on resume re-executes
+    generation and confidence nodes which can produce stale/incorrect results.
+    Instead, directly saves the human answer, updates ticket status, and caches
+    the response for future use.
+
+    Only authenticated admin users with proper tenant access can resolve tickets.
 
     Args:
-        ticket_id: The ID of the ticket to resume
+        ticket_id: The ID of the ticket to resolve
         resume_request: Contains human agent's answer and notification preferences
         current_user: Authenticated admin user
         db: RLS-scoped database session
 
     Returns:
-        Confirmation of successful resume
+        Confirmation of successful resolution
     """
-    logger.info(f"Resuming ticket {ticket_id}")
+    logger.info(f"Resolving ticket {ticket_id}")
 
     try:
         result = await db.execute(
@@ -63,20 +66,7 @@ async def resume_ticket(
                 detail=f"Ticket is not in pending_human status. Current status: {ticket.status}",
             )
 
-        runnable = get_runnable()
-        config = {"configurable": {"thread_id": str(ticket_id)}}
-
-        logger.info(f"Resuming graph for ticket {ticket_id} with answer")
-        _final_state = await runnable.ainvoke(
-            Command(resume=resume_request.answer),
-            config=config,
-        )
-
-        logger.info(f"Graph resumed successfully for ticket {ticket_id}")
-
         ticket.status = TicketStatus.RESOLVED
-        await db.commit()
-
         logger.info(f"Ticket {ticket_id} marked as RESOLVED")
 
         human_message = Message(
@@ -129,7 +119,7 @@ async def resume_ticket(
 
         return {
             "success": True,
-            "message": "Ticket resumed successfully",
+            "message": "Ticket resolved successfully",
             "ticket_id": str(ticket_id),
         }
 
@@ -137,8 +127,8 @@ async def resume_ticket(
         raise
     except Exception as e:
         await db.rollback()
-        logger.error(f"Failed to resume ticket {ticket_id}: {e}", exc_info=True)
+        logger.error(f"Failed to resolve ticket {ticket_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to resume ticket",
+            detail="Failed to resolve ticket",
         ) from e
