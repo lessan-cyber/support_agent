@@ -16,7 +16,7 @@ router = APIRouter()
 async def get_tenant_documents(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_rls_session),
-):
+) -> DocumentListResponse:
     """
     Get all documents uploaded in the current tenant.
 
