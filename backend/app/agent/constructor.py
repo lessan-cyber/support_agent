@@ -14,7 +14,7 @@ from app.agent.nodes.contextualize import contextualize_question
 from app.agent.nodes.escalation import escalate_to_human
 from app.agent.nodes.generation import generate_response
 from app.agent.nodes.retrieval import retrieve_documents
-from app.agent.state import AgentState
+from app.agent.state import AgentState, build_escalation
 from app.utils.logging_config import logger
 
 # Define the graph structure
@@ -192,18 +192,10 @@ async def stream_response(
                             )
 
                     elif confidence < 0.7:
-                        bridge_message = (
-                            "I need to check this with an expert. "
-                            f"Ticket #{ticket_id} has been created. "
-                            "You will receive an email notification when we have an answer."
+                        escalation_info = build_escalation(
+                            ticket_id=ticket_id,
+                            user_question=user_question,
                         )
-                        escalation_info = {
-                            "type": "escalation",
-                            "ticket_id": ticket_id,
-                            "user_question": user_question,
-                            "bridge_message": bridge_message,
-                            "content": bridge_message,
-                        }
                         yield json.dumps(escalation_info)
                         escalation_info = None
                         escalation_streamed = True
@@ -212,19 +204,12 @@ async def stream_response(
         if escalation_info and not escalation_streamed:
             yield json.dumps(escalation_info)
         else:
-            bridge_message = (
-                "I need to check this with an expert. "
-                f"Ticket #{ticket_id} has been created. "
-                "Your request is being processed."
-            )
             yield json.dumps(
-                {
-                    "type": "escalation",
-                    "ticket_id": ticket_id,
-                    "user_question": user_question,
-                    "bridge_message": bridge_message,
-                    "content": bridge_message,
-                }
+                build_escalation(
+                    ticket_id=ticket_id,
+                    user_question=user_question,
+                    content_suffix="Your request is being processed.",
+                )
             )
 
     except Exception as e:
