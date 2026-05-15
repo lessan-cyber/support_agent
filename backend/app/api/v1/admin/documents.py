@@ -37,6 +37,8 @@ async def get_tenant_documents(
             count=len(documents),
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Unexpected error retrieving documents: {e}", exc_info=True)
         raise HTTPException(
