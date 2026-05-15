@@ -33,7 +33,6 @@ graph.add_edge(START, "check_cache_raw")
 graph.add_conditional_edges(
     "check_cache_raw",
     lambda state: END if state["is_cache_hit"] else "contextualize",
-    {"END", "contextualize"},
 )
 
 # Phase 2: rephrase question then check cache again (1 LLM call if hit)
@@ -41,7 +40,6 @@ graph.add_edge("contextualize", "check_cache")
 graph.add_conditional_edges(
     "check_cache",
     lambda state: END if state["is_cache_hit"] else "retrieve",
-    {"END", "retrieve"},
 )
 
 graph.add_edge("retrieve", "generate")
@@ -52,14 +50,12 @@ graph.add_edge("generate", "grade_confidence")
 def should_escalate(state: AgentState) -> str:
     """Determine if the answer should be escalated based on confidence score."""
     confidence = state.get("confidence_score", 0.5)
-    # Use threshold of 0.7 as specified in the PRD
     return "escalate" if confidence < 0.7 else "cache_high_confidence"
 
 
 graph.add_conditional_edges(
     "grade_confidence",
     should_escalate,
-    {"cache_high_confidence", "escalate"},
 )
 
 # After caching high-confidence responses, go to END
