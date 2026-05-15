@@ -28,7 +28,7 @@ async def get_conversation_list(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_rls_session),
     params: ConversationListQueryParams = Depends(),
-):
+) -> ConversationListResponse:
     """
     Get conversation list for the current tenant (sidebar view).
 
@@ -152,7 +152,7 @@ async def get_conversation_messages(
     ticket_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_rls_session),
-):
+) -> ConversationMessagesResponse:
     """
     Get all messages for a specific conversation (chat view).
 
