@@ -13,11 +13,12 @@ async def send_resolution_email(user_email: str, ticket_id: str, answer: str) ->
     """Send the human-provided answer to the user who created the ticket."""
     escaped_answer = html.escape(answer).replace("\n", "<br>")
     escaped_ticket_id = html.escape(ticket_id)
+    escaped_email = html.escape(user_email)
     try:
         await Emails.send_async(
             {
                 "from": settings.EMAIL_FROM_ADDRESS,
-                "to": user_email,
+                "to": escaped_email,
                 "subject": f"Your support request #{escaped_ticket_id} has been answered",
                 "html": (
                     "<h2>Your support request has been resolved</h2>"
@@ -34,7 +35,7 @@ async def send_resolution_email(user_email: str, ticket_id: str, answer: str) ->
                 ),
             }
         )
-        logger.info(f"Resolution email sent to {user_email} for ticket {ticket_id}")
+        logger.info(f"Resolution email sent to {escaped_email} for ticket {ticket_id}")
     except ResendError as e:
         logger.warning(f"Failed to send resolution email: {e}")
 
@@ -43,11 +44,13 @@ async def send_contact_emails(user_name: str, user_email: str, message: str) -> 
     """Send contact form confirmation to the user and notification to support."""
     escaped_name = html.escape(user_name) if user_name else ""
     escaped_message = html.escape(message).replace("\n", "<br>")
+    escaped_email = html.escape(user_email)
+
     try:
         await Emails.send_async(
             {
                 "from": settings.EMAIL_FROM_ADDRESS,
-                "to": user_email,
+                "to": escaped_email,
                 "reply_to": settings.EMAIL_NOTIFICATION_ADDRESS,
                 "subject": "We received your message",
                 "html": (
@@ -71,16 +74,16 @@ async def send_contact_emails(user_name: str, user_email: str, message: str) -> 
             {
                 "from": settings.EMAIL_FROM_ADDRESS,
                 "to": settings.EMAIL_NOTIFICATION_ADDRESS,
-                "subject": f"New contact form submission from {escaped_name or user_email}",
+                "subject": f"New contact form submission from {escaped_name or escaped_email}",
                 "html": (
                     "<h3>New Contact Form Submission</h3>"
                     f"<p><strong>Name:</strong> {escaped_name or 'Not provided'}</p>"
-                    f"<p><strong>Email:</strong> {user_email}</p>"
+                    f"<p><strong>Email:</strong> {escaped_email}</p>"
                     "<p><strong>Message:</strong></p>"
                     f"<p>{escaped_message}</p>"
                 ),
             }
         )
-        logger.info(f"Contact notification sent for {user_email}")
+        logger.info(f"Contact notification sent for {escaped_email}")
     except ResendError as e:
         logger.warning(f"Failed to send contact notification: {e}")
