@@ -15,7 +15,11 @@ interface MessageData {
 
 export default function Message() {
     const searchParams = useSearchParams();
-    const selectedId = searchParams.get("conversation") || undefined; // "ABC123"
+
+    const [selectedId, setSelectedId] = useState<string | undefined>(
+        searchParams.get("conversation") || undefined
+    ); // "ABC123"
+    setSelectedId(searchParams.get("conversation") || undefined);
     const { messageId } = useParams<{ messageId: string }>();
     const router = useRouter();
     const [message, setMessage] = useState<MessageData | null>(null);
@@ -90,10 +94,7 @@ export default function Message() {
     if (!message) return null;
     return (
         <div>
-            <ChatView
-                conversationId={selectedId}
-                // conversationUser={selectedConversationId ? conversationUsers[selectedConversationId as keyof typeof conversationUsers] : undefined}
-            />
+            
         </div>
     );
 }

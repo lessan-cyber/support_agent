@@ -1,20 +1,19 @@
-// app/(protected)/dashboard/inbox/page.tsx
+// app/dashboard/inbox/page.tsx
 "use client"
 
 import { useSearchParams } from 'next/navigation'
-import { MessageComponent } from "@/components/dashboard/message"
-import { ChatView } from '@/components/dashboard/chat-view'
 
 export default function InboxPage() {
     const searchParams = useSearchParams()
     const conversationId = searchParams.get('conversation')
 
+    // Le layout gère déjà l'affichage de ChatView.
+    // Cette page sert uniquement d'état vide quand aucune conversation n'est sélectionnée.
+    if (conversationId) return null
+
     return (
-        <div>
-            {conversationId
-                ? <ChatView conversationId={conversationId} />
-                : <p>Sélectionne une conversation</p>
-            }
+        <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+            Sélectionne une conversation
         </div>
     )
 }

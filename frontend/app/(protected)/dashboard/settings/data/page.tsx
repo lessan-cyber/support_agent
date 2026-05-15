@@ -197,7 +197,7 @@ export default function DataPage() {
             )}
           </Button>
           <p className="text-xs text-muted-foreground mt-2">
-            You'll receive a JSON file with all your data
+            You will receive a JSON file with all your data
           </p>
         </CardContent>
       </Card>
@@ -214,7 +214,7 @@ export default function DataPage() {
         </CardHeader>
         <CardContent>
           <AlertDialog>
-            <AlertDialogTrigger asChild>
+            <AlertDialogTrigger>
               <Button variant="outline" className="border-orange-200 text-orange-600 hover:bg-orange-50">
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete All Documents
@@ -255,7 +255,7 @@ export default function DataPage() {
         </CardHeader>
         <CardContent>
           <AlertDialog>
-            <AlertDialogTrigger asChild>
+            <AlertDialogTrigger>
               <Button variant="destructive">
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete Account

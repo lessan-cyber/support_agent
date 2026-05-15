@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { createClient } from "@/utils/supabase/client";
-import type { Message } from "@/lib/types/chat";
+import type { Conversation, Message } from "@/lib/types/chat";
 interface LiveConversationProps {
     ticketId?: string;
     onTakeOver?: () => void;
@@ -15,7 +15,7 @@ export function LiveConversation({
 }: LiveConversationProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(false);
-    const [conversation, setConversation] = useState<any>(null);
+    const [conversation, setConversation] = useState<Conversation | null>(null);
     const [agentTakenOver, setAgentTakenOver] = useState(false);
 
     useEffect(() => {
@@ -97,7 +97,7 @@ export function LiveConversation({
         <Card className="p-0 overflow-hidden flex flex-col h-96">
             <div className="px-4 py-3 border-b border-border flex items-center justify-between">
                 <span className="text-sm font-semibold text-foreground">
-                    Conversation — {conversation?.user_email || ticketId}
+                    Conversation — {conversation?.userEmail || ticketId}
                 </span>
                 <button
                     onClick={handleTakeover}
