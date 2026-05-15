@@ -109,6 +109,7 @@ async def stream_response(
 
     pending_response = ""
     escalation_info = None
+    escalation_streamed = False
     user_question = message
 
     try:
@@ -204,9 +205,11 @@ async def stream_response(
                             "content": bridge_message,
                         }
                         yield json.dumps(escalation_info)
+                        escalation_info = None
+                        escalation_streamed = True
     except GraphInterrupt:
         logger.info(f"Graph interrupted for ticket {ticket_id}, sending escalation.")
-        if escalation_info:
+        if escalation_info and not escalation_streamed:
             yield json.dumps(escalation_info)
         else:
             bridge_message = (
