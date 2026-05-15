@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
+from resend.exceptions import ResendError
 
 from app.api.deps import get_current_user
 from app.models.user import User
@@ -39,7 +40,7 @@ async def send_contact_email(
 
         return {"success": True, "message": "Email sent successfully"}
 
-    except Exception as e:
+    except ResendError as e:
         logger.error(f"Failed to send contact email: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
