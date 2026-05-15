@@ -6,11 +6,14 @@ WORKDIR /app
 # Install pnpm
 RUN npm install -g pnpm
 
+# Allow native build scripts (sharp, unrs-resolver) required by Next.js
+ENV PNPM_ONLY_BUILT_DEPENDENCIES='["sharp","unrs-resolver"]'
+
 # Copy package files first (better layer caching)
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install ALL dependencies (including devDependencies for build)
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 # Copy source code
 COPY . .
@@ -29,8 +32,11 @@ WORKDIR /app
 # Install pnpm
 RUN npm install -g pnpm
 
+# Allow native build scripts (sharp) required by Next.js in production
+ENV PNPM_ONLY_BUILT_DEPENDENCIES='["sharp","unrs-resolver"]'
+
 # Copy package files
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install production dependencies only
 RUN pnpm install --prod --frozen-lockfile
