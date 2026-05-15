@@ -42,7 +42,7 @@ class Settings(BaseSettings):
         alias="EMAIL_FROM_ADDRESS",
     )
     EMAIL_NOTIFICATION_ADDRESS: str = Field(
-        default="josephgbessaya@gmail.com",
+        default="notifications@example.com",
         alias="EMAIL_NOTIFICATION_ADDRESS",
     )
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
