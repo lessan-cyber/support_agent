@@ -1,4 +1,4 @@
-"""Contact form email endpoint — sends emails via Resend."""
+"""Contact form email endpoint — Sends emails via Resend."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
