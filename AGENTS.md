@@ -29,7 +29,6 @@ We are building a **Multi-tenant AI Customer Support SaaS** with the following k
 ### 3.1 Multi-Tenancy & RLS (Zero Trust)
 
   * **The Golden Rule:** Every database transaction MUST be scoped to a `tenant_id`.
-  * **Never** manually add `WHERE tenant_id = ...` in your API queries. We rely on the DB Session to set the context.
   * **Session Injection:** When generating database code, always ensure the session is configured with the RLS setting:
     ```python
     # Example of required pattern in dependencies or middleware

@@ -5,6 +5,7 @@ Refactored based on RedisVL tutorial best practices.
 
 import json
 import time
+import uuid
 from typing import Any, Dict, Optional
 
 import numpy as np
@@ -14,7 +15,11 @@ from redisvl.query import VectorQuery
 from redisvl.query.filter import Tag
 from redisvl.schema import IndexSchema
 
-# from app.services.embeddings import get_embedding_model
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.message import Message, SenderType
+from app.services.embeddings import get_embedding_model
 from app.settings import settings
 from app.utils.logging_config import logger
 
@@ -266,6 +271,46 @@ class SemanticCache:
         except Exception as e:
             logger.error(f"Failed to get cache stats: {e}")
             return {"error": str(e)}
+
+    async def cache_ticket_resolution(
+        self,
+        db: AsyncSession,
+        ticket_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        answer: str,
+    ) -> None:
+        """Find the original user question and cache the human answer against it."""
+        try:
+            message_query = (
+                select(Message.content)
+                .where(
+                    Message.ticket_id == ticket_id,
+                    Message.sender_type == SenderType.USER,
+                )
+                .order_by(Message.created_at.desc())
+                .limit(1)
+            )
+            message_result = await db.execute(message_query)
+            original_question = message_result.scalar()
+
+            if original_question:
+                model = get_embedding_model()
+                embedding = await model.aembed_query(original_question)
+                await self.cache_response(
+                    tenant_id=str(tenant_id),
+                    query_embedding=embedding,
+                    query_text=original_question,
+                    response=answer,
+                )
+                logger.info(
+                    f"Cached human resolution for question: '{original_question[:50]}...'"
+                )
+            else:
+                logger.warning(
+                    f"Could not find original question for ticket {ticket_id}"
+                )
+        except Exception as e:
+            logger.error(f"Failed to cache human resolution: {e}", exc_info=True)
 
     async def close(self) -> None:
         """Clean up resources."""

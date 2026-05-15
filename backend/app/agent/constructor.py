@@ -7,17 +7,19 @@ from langgraph.errors import GraphInterrupt
 from langgraph.graph import END, START, StateGraph
 
 from app.agent.nodes.cache_check import check_cache
+from app.agent.nodes.cache_check_raw import check_cache_raw
 from app.agent.nodes.cache_update import cache_high_confidence_response
 from app.agent.nodes.confidence import grade_confidence
 from app.agent.nodes.contextualize import contextualize_question
 from app.agent.nodes.escalation import escalate_to_human
 from app.agent.nodes.generation import generate_response
 from app.agent.nodes.retrieval import retrieve_documents
-from app.agent.state import AgentState
+from app.agent.state import AgentState, build_escalation
 from app.utils.logging_config import logger
 
 # Define the graph structure
 graph = StateGraph(AgentState)
+graph.add_node("check_cache_raw", check_cache_raw)
 graph.add_node("contextualize", contextualize_question)
 graph.add_node("check_cache", check_cache)
 graph.add_node("retrieve", retrieve_documents)
@@ -26,16 +28,18 @@ graph.add_node("grade_confidence", grade_confidence)
 graph.add_node("cache_high_confidence", cache_high_confidence_response)
 graph.add_node("escalate", escalate_to_human)
 
-# Define the edges
-graph.add_edge(START, "contextualize")
-graph.add_edge("contextualize", "check_cache")
+# Phase 1: check cache with raw question (0 LLM calls if hit)
+graph.add_edge(START, "check_cache_raw")
+graph.add_conditional_edges(
+    "check_cache_raw",
+    lambda state: END if state["is_cache_hit"] else "contextualize",
+)
 
-# Conditional edge: if cache hit, go directly to END (with cached response)
-# If cache miss, proceed with retrieve -> generate
+# Phase 2: rephrase question then check cache again (1 LLM call if hit)
+graph.add_edge("contextualize", "check_cache")
 graph.add_conditional_edges(
     "check_cache",
     lambda state: END if state["is_cache_hit"] else "retrieve",
-    {"END", "retrieve"},
 )
 
 graph.add_edge("retrieve", "generate")
@@ -46,14 +50,12 @@ graph.add_edge("generate", "grade_confidence")
 def should_escalate(state: AgentState) -> str:
     """Determine if the answer should be escalated based on confidence score."""
     confidence = state.get("confidence_score", 0.5)
-    # Use threshold of 0.7 as specified in the PRD
     return "escalate" if confidence < 0.7 else "cache_high_confidence"
 
 
 graph.add_conditional_edges(
     "grade_confidence",
     should_escalate,
-    {"cache_high_confidence", "escalate"},
 )
 
 # After caching high-confidence responses, go to END
@@ -107,6 +109,8 @@ async def stream_response(
 
     pending_response = ""
     escalation_info = None
+    escalation_streamed = False
+    user_question = message
 
     try:
         async for event in runnable.astream_events(
@@ -116,7 +120,14 @@ async def stream_response(
             name = event.get("name")
 
             if kind == "on_chain_start":
-                if name == "contextualize":
+                if name == "check_cache_raw":
+                    yield json.dumps(
+                        {
+                            "type": "status",
+                            "content": "Checking for similar past answers...",
+                        }
+                    )
+                elif name == "contextualize":
                     yield json.dumps(
                         {
                             "type": "status",
@@ -127,7 +138,7 @@ async def stream_response(
                     yield json.dumps(
                         {
                             "type": "status",
-                            "content": "Checking for similar past answers...",
+                            "content": "Checking cache with refined question...",
                         }
                     )
                 elif name == "retrieve":
@@ -148,13 +159,18 @@ async def stream_response(
                 if not output:
                     continue
 
-                if name == "check_cache" and output.get("is_cache_hit"):
+                if name in ("check_cache_raw", "check_cache") and output.get(
+                    "is_cache_hit"
+                ):
                     messages = output.get("messages", [])
                     if messages:
                         cached_content = messages[0].content
-                        for i in range(0, len(cached_content), 3):
+                        for i in range(0, len(cached_content), 200):
                             yield json.dumps(
-                                {"type": "token", "content": cached_content[i : i + 3]}
+                                {
+                                    "type": "token",
+                                    "content": cached_content[i : i + 200],
+                                }
                             )
 
                         return  # End stream after cache hit
@@ -167,34 +183,33 @@ async def stream_response(
                 elif name == "grade_confidence":
                     confidence = output.get("confidence_score", 0.0)
                     if confidence >= 0.7 and pending_response:
-                        for i in range(0, len(pending_response), 3):
+                        for i in range(0, len(pending_response), 200):
                             yield json.dumps(
                                 {
                                     "type": "token",
-                                    "content": pending_response[i : i + 3],
+                                    "content": pending_response[i : i + 200],
                                 }
                             )
 
                     elif confidence < 0.7:
-                        escalation_info = {
-                            "type": "escalation",
-                            "ticket_id": ticket_id,
-                            "content": "I am not confident in my answer. Escalating to a human agent.",
-                        }
-                        # Don't yield yet, wait for interrupt to confirm
-
+                        escalation_info = build_escalation(
+                            ticket_id=ticket_id,
+                            user_question=user_question,
+                        )
+                        yield json.dumps(escalation_info)
+                        escalation_info = None
+                        escalation_streamed = True
     except GraphInterrupt:
         logger.info(f"Graph interrupted for ticket {ticket_id}, sending escalation.")
-        if escalation_info:
+        if escalation_info and not escalation_streamed:
             yield json.dumps(escalation_info)
         else:
-            # Fallback escalation message
             yield json.dumps(
-                {
-                    "type": "escalation",
-                    "ticket_id": ticket_id,
-                    "content": "I need to check this with an expert. Your request is being processed.",
-                }
+                build_escalation(
+                    ticket_id=ticket_id,
+                    user_question=user_question,
+                    content_suffix="Your request is being processed.",
+                )
             )
 
     except Exception as e:
