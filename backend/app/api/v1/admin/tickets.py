@@ -3,7 +3,6 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from resend import Emails
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,8 +12,8 @@ from app.models.ticket import Ticket, TicketStatus
 from app.models.user import User
 from app.schemas.chat import AdminResolveRequest
 from app.services.cache import semantic_cache
+from app.services.email import send_resolution_email
 from app.services.embeddings import get_embedding_model
-from app.settings import settings
 from app.utils.logging_config import logger
 
 router = APIRouter()
@@ -118,26 +117,11 @@ async def resume_ticket(
 
         if resume_request.notify_email and ticket.user_email:
             try:
-                user_email = ticket.user_email
-                await Emails.send_async(
-                    {
-                        "from": "Support Agent <onboarding@resend.dev>",
-                        "to": user_email,
-                        "subject": f"Your support request #{ticket_id} has been answered",
-                        "html": (
-                            "<h2>Your support request has been resolved</h2>"
-                            f"<p>Hello,</p>"
-                            f"<p>Your support request <strong>#{ticket_id}</strong> has been answered by our team.</p>"
-                            "<hr>"
-                            f"<h3>Answer:</h3>"
-                            f"<p>{resume_request.answer.replace(chr(10), '<br>')}</p>"
-                            "<hr>"
-                            "<p>If you have any further questions, please don't hesitate to reach out.</p>"
-                            "<p>Best regards,<br><strong>Support Agent Team</strong></p>"
-                        ),
-                    }
+                await send_resolution_email(
+                    user_email=ticket.user_email,
+                    ticket_id=str(ticket_id),
+                    answer=resume_request.answer,
                 )
-                logger.info(f"Resolution email sent to {user_email} for ticket {ticket_id}")
             except Exception as e:
                 logger.error(f"Failed to send resolution email: {e}", exc_info=True)
         elif resume_request.notify_email and not ticket.user_email:
