@@ -13,7 +13,6 @@ from app.models.user import User
 from app.schemas.chat import AdminResolveRequest
 from app.services.cache import semantic_cache
 from app.services.email import send_resolution_email
-from app.services.embeddings import get_embedding_model
 from app.utils.logging_config import logger
 
 router = APIRouter()
@@ -79,41 +78,12 @@ async def resume_ticket(
         db.add(human_message)
         await db.commit()
 
-        try:
-            message_query = (
-                select(Message.content)
-                .where(
-                    Message.ticket_id == ticket_id,
-                    Message.sender_type == SenderType.USER,
-                )
-                .order_by(Message.created_at.desc())
-                .limit(1)
-            )
-
-            message_result = await db.execute(message_query)
-            original_question = message_result.scalar()
-
-            if original_question:
-                embedding_model = get_embedding_model()
-                question_embedding = await embedding_model.aembed_query(
-                    original_question
-                )
-
-                await semantic_cache.cache_response(
-                    tenant_id=str(ticket.tenant_id),
-                    query_embedding=question_embedding,
-                    query_text=original_question,
-                    response=resume_request.answer,
-                )
-                logger.info(
-                    f"Cached human resolution for question: '{original_question[:50]}...' for future use"
-                )
-            else:
-                logger.warning(
-                    f"Could not find original question for ticket {ticket_id}"
-                )
-        except Exception as e:
-            logger.error(f"Failed to cache human resolution: {e}", exc_info=True)
+        await semantic_cache.cache_ticket_resolution(
+            db=db,
+            ticket_id=ticket_id,
+            tenant_id=ticket.tenant_id,
+            answer=resume_request.answer,
+        )
 
         if resume_request.notify_email and ticket.user_email:
             try:
