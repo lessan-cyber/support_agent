@@ -26,14 +26,12 @@ def _verify_tenant_access(current_user: User, tenant_id: uuid.UUID) -> None:
         )
 
 
-@router.get(
-    "/{tenant_id}/allowed-domains", response_model=AllowedDomainsListResponse
-)
+@router.get("/{tenant_id}/allowed-domains", response_model=AllowedDomainsListResponse)
 async def get_allowed_domains(
     tenant_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_rls_session),
-):
+) -> AllowedDomainsListResponse:
     """Get list of allowed domains for a tenant."""
     logger.info(
         f"User {current_user.id} requesting allowed domains for tenant {tenant_id}"
@@ -62,15 +60,13 @@ async def get_allowed_domains(
         ) from e
 
 
-@router.post(
-    "/{tenant_id}/allowed-domains", response_model=AllowedDomainsListResponse
-)
+@router.post("/{tenant_id}/allowed-domains", response_model=AllowedDomainsListResponse)
 async def add_allowed_domains(
     tenant_id: uuid.UUID,
     request: AllowedDomainAddRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_rls_session),
-):
+) -> AllowedDomainsListResponse:
     """Add one or more domains to a tenant's allowed domains list."""
     logger.info(f"User {current_user.id} adding domains to tenant {tenant_id}")
 
@@ -116,7 +112,7 @@ async def remove_allowed_domain(
     domain: str,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_rls_session),
-):
+) -> AllowedDomainsListResponse:
     """Remove a domain from a tenant's allowed domains list."""
     logger.info(
         f"User {current_user.id} removing domain '{domain}' from tenant {tenant_id}"
@@ -148,15 +144,13 @@ async def remove_allowed_domain(
         ) from e
 
 
-@router.put(
-    "/{tenant_id}/allowed-domains", response_model=AllowedDomainsListResponse
-)
+@router.put("/{tenant_id}/allowed-domains", response_model=AllowedDomainsListResponse)
 async def update_allowed_domain(
     tenant_id: uuid.UUID,
     request: AllowedDomainUpdateRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_rls_session),
-):
+) -> AllowedDomainsListResponse:
     """Update an existing domain in a tenant's allowed domains list."""
     logger.info(f"User {current_user.id} updating domain in tenant {tenant_id}")
 

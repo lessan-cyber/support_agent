@@ -14,7 +14,7 @@ router = APIRouter()
 @router.get("", response_model=UserPreferencesResponse)
 async def get_preferences(
     current_user: User = Depends(get_current_user),
-):
+) -> UserPreferencesResponse:
     """Get current user preferences."""
     return UserPreferencesResponse(preferences=current_user.preferences)
 
@@ -24,7 +24,7 @@ async def update_preferences(
     request: UserPreferencesUpdateRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_rls_session),
-):
+) -> UserPreferencesResponse:
     """Update user preferences (partial update)."""
     logger.info(f"User {current_user.id} updating preferences")
 
