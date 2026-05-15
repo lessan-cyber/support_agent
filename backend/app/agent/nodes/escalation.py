@@ -7,7 +7,7 @@ from langgraph.types import interrupt
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.state import AgentState
+from app.agent.state import AgentState, build_escalation
 from app.config.db import SessionLocal
 from app.models.ticket import Ticket, TicketStatus
 from app.utils.logging_config import logger
@@ -63,23 +63,12 @@ async def escalate_to_human(state: AgentState) -> dict:
             else:
                 logger.info(f"Ticket {ticket_id} already escalated, skipping update")
 
-        # Generate bridge message for the user
-        bridge_message = (
-            "I need to check this with an expert. "
-            f"Ticket #{ticket_id} has been created. "
-            "You will receive an email notification when we have an answer."
-        )
-
-        logger.info(f"Generated bridge message: {bridge_message}")
-
         # Prepare escalation payload for frontend
-        escalation_payload = {
-            "type": "escalation",
-            "ticket_id": ticket_id,
-            "user_question": user_question,
-            "bridge_message": bridge_message,
-            "context": [doc.page_content for doc in documents],
-        }
+        escalation_payload = build_escalation(
+            ticket_id=str(ticket_id),
+            user_question=user_question,
+            context=[doc.page_content for doc in documents],
+        )
 
         # INTERRUPT - pause graph and wait for human input
         # This will be surfaced to caller in result["__interrupt__"]

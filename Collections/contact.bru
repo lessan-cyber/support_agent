@@ -1,0 +1,25 @@
+meta {
+  name: contact
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{backend_base_url}}/api/v1/admin/contact
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "email":{{test_email}},
+    "name":{{test_name}},
+    "message":{{test_message}}
+    
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

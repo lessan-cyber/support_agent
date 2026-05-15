@@ -1,0 +1,27 @@
+meta {
+  name: add email for escalation
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{backend_base_url}}/api/v1/chat/tickets/{{test_ticket_id}}/email
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{anonymous_key}}
+}
+
+body:json {
+  {
+    "ticket_id":"{{test_ticket_id}}",
+    "email":"{{test_email}}"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

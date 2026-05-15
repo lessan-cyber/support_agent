@@ -27,6 +27,7 @@ dependencies = [
     "python-jose[pycryptodome]>=3.5.0",
     "redis>=6.4.0",
     "redisvl>=0.13.2",
+    "resend>=2.30.1",
     "slowapi>=0.1.9",
     "sqlalchemy[asyncio]>=2.0.44",
     "supabase>=2.24.0",
