@@ -1,7 +1,7 @@
 """Conversation list and message history admin endpoints."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import and_, func, select, true
@@ -63,7 +63,9 @@ async def get_conversation_list(
             filters.append(Ticket.created_at >= start_date_obj)
         if params.end_date:
             try:
-                end_date_obj = datetime.fromisoformat(params.end_date).date()
+                end_date_obj = datetime.fromisoformat(
+                    params.end_date
+                ).date() + timedelta(days=1)
             except ValueError:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -71,15 +73,16 @@ async def get_conversation_list(
                 )
             filters.append(Ticket.created_at <= end_date_obj)
 
-        count_query = (
-            select(func.count()).select_from(Ticket).where(and_(*filters))
-        )
+        count_query = select(func.count()).select_from(Ticket).where(and_(*filters))
         count_result = await db.execute(count_query)
         total_count = count_result.scalar() or 0
 
         if total_count == 0:
             return ConversationListResponse(
-                conversations=[], total_count=0, limit=params.limit, offset=params.offset
+                conversations=[],
+                total_count=0,
+                limit=params.limit,
+                offset=params.offset,
             )
 
         latest_message = (
