@@ -3,7 +3,9 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from resend.exceptions import ResendError
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_rls_session
@@ -92,7 +94,7 @@ async def resume_ticket(
                     ticket_id=str(ticket_id),
                     answer=resume_request.answer,
                 )
-            except Exception as e:
+            except ResendError as e:
                 logger.error(f"Failed to send resolution email: {e}", exc_info=True)
         elif resume_request.notify_email and not ticket.user_email:
             logger.warning(f"Cannot send email for ticket {ticket_id}: no user email on ticket")
@@ -105,9 +107,9 @@ async def resume_ticket(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except SQLAlchemyError as e:
         await db.rollback()
-        logger.error(f"Failed to resolve ticket {ticket_id}: {e}", exc_info=True)
+        logger.error(f"Database error resolving ticket {ticket_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to resolve ticket",
