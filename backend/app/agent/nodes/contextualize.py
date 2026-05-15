@@ -53,8 +53,7 @@ async def contextualize_question(state: AgentState) -> dict:
     messages = state.get("messages", [])
     if not messages:
         logger.warning("No messages in state — skipping contextualization")
-        return {"rephrased_question": None}
-
+        return {}
     user_question = messages[-1].content
 
     try:
