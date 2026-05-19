@@ -2,12 +2,11 @@
 
 from fastapi import APIRouter
 
-from app.api.v1.admin.tickets import router as tickets_router
 from app.api.v1.admin.conversations import router as conversations_router
 from app.api.v1.admin.documents import router as documents_router
 from app.api.v1.admin.domains import router as domains_router
 from app.api.v1.admin.preferences import router as preferences_router
-from app.api.v1.admin.contact import router as contact_router
+from app.api.v1.admin.tickets import router as tickets_router
 
 router = APIRouter()
 
@@ -16,4 +15,3 @@ router.include_router(conversations_router, prefix="/conversations")
 router.include_router(documents_router, prefix="/documents")
 router.include_router(domains_router, prefix="/tenants")
 router.include_router(preferences_router, prefix="/preferences")
-router.include_router(contact_router, prefix="/contact")
