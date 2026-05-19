@@ -91,3 +91,23 @@ class UserPreferencesResponse(BaseModel):
     """Response schema for user preferences."""
 
     preferences: UserPreferences
+
+
+class TenantInfo(BaseModel):
+    """Tenant information schema."""
+
+    id: str
+    name: str
+    plan: str | None = None
+    allowed_domains: list[str] | None = None
+
+
+class UserInfoResponse(BaseModel):
+    """Response schema for authenticated user info."""
+
+    id: str
+    email: str
+    name: str
+    role: str
+    tenant: TenantInfo
+    preferences: UserPreferences
