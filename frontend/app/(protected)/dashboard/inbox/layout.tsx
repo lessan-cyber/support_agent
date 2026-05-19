@@ -1,11 +1,11 @@
 // app/dashboard/inbox/layout.tsx
 "use client";
 
-import { useState } from "react";
-import { InboxSidebar } from "@/components/dashboard/inbox-sidebar";
-import { ChatView } from "@/components/dashboard/chat-view";
-
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { InboxSidebar} from "@/components/dashboard/inbox-sidebar";
+import { ChatView } from "@/components/dashboard/chat-view";
 
 export default function InboxLayout({
     children,
@@ -13,35 +13,33 @@ export default function InboxLayout({
     children: React.ReactNode;
 }) {
     const searchParams = useSearchParams();
-    const selectedId = searchParams.get("conversation") || undefined; // "ABC123"
-    const [selectedConversationId, setSelectedConversationId] = useState<
-        string | undefined
-    >();
     const router = useRouter();
 
-    // Mock data - À remplacer par vos vraies données
-    const conversationUsers = {
-        "1": { name: "Alice Martin", avatar: undefined },
-        "2": { name: "Bob Dupont", avatar: undefined },
-        "3": { name: "Claire Bernard", avatar: undefined },
-        "4": { name: "David Moreau", avatar: undefined },
-    };
+    // Synchronise selectedId à chaque changement d'URL
+    const [selectedId, setSelectedId] = useState<string | undefined>(
+        searchParams.get("conversation") ?? undefined
+    );
+
+    useEffect(() => {
+        const conversationId = searchParams.get("conversation") ?? undefined;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSelectedId(conversationId);
+    }, [searchParams]);
 
     return (
-        <div className="flex h-full w-full">
-            <InboxSidebar
-                onConversationSelect={(id) =>
-                    router.push(`/dashboard/inbox?conversation=${id}`)
-                }
-                selectedConversationId={selectedId}
-            />
-            <main className="flex-1 overflow-hidden">
-                <ChatView
-                    conversationId={selectedId}
-                    // conversationUser={selectedConversationId ? conversationUsers[selectedConversationId as keyof typeof conversationUsers] : undefined}
+        <SidebarProvider>
+            <div className="flex h-screen w-full">
+                <InboxSidebar
+                    onConversationSelect={(id) =>
+                        router.push(`/dashboard/inbox?conversation=${encodeURIComponent(id)}`)
+                    }
+                    selectedConversationId={selectedId}
                 />
-                {children}
-            </main>
-        </div>
+                <main className="flex-1 h-screen overflow-hidden">
+                    <ChatView conversationId={selectedId} />
+                    {children}
+                </main>
+            </div>
+        </SidebarProvider>
     );
 }

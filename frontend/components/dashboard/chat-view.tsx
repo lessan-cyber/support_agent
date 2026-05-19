@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/purity */
 // components/dashboard/chat-view.tsx
 "use client";
 
@@ -7,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Send, Bot, User, Clock, Inbox } from "lucide-react";
+import { Send, Bot, Clock, Inbox, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Message } from "@/lib/types/chat";
 import { useConversationMessages } from "@/hooks/use-chat-history";
@@ -21,88 +22,43 @@ interface ChatViewProps {
 }
 
 export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
-    const [messages, setMessages] = React.useState<Message[]>([
-        {
-            id: "1",
-            content: "Bonjour, j'ai besoin d'aide avec mon compte",
-            sender_type: "user",
-            created_at: new Date(Date.now() - 3600000).toISOString(),
-        },
-        {
-            id: "2",
-            content:
-                "Bonjour ! Je serais ravi de vous aider. Pouvez-vous me décrire votre problème plus en détail ?",
-            sender_type: "bot",
-            created_at: new Date(Date.now() - 3500000).toISOString(),
-        },
-        {
-            id: "3",
-            content:
-                "Je n'arrive pas à me connecter, j'ai oublié mon mot de passe",
-            sender_type: "user",
-            created_at: new Date(Date.now() - 3400000).toISOString(),
-        },
-        {
-            id: "4",
-            content:
-                "Je comprends. Pour réinitialiser votre mot de passe, vous pouvez cliquer sur 'Mot de passe oublié' sur la page de connexion.",
-            sender_type: "bot",
-            created_at: new Date(Date.now() - 3300000).toISOString(),
-        },
-        {
-            id: "5",
-            content: "Je ne reçois pas l'email de réinitialisation",
-            sender_type: "user",
-            created_at: new Date(Date.now() - 3200000).toISOString(),
-        },
-    ]);
-
+    // ✅ Plus de messages hardcodés — état vide par défaut
+    const [optimisticMessages, setOptimisticMessages] = React.useState<Message[]>([]);
+    const [inputValue, setInputValue] = React.useState("");
+    const messagesEndRef = React.useRef<HTMLDivElement>(null);
     const localIdsRef = React.useRef<Set<string>>(new Set());
 
-    const { messages: fetchedMessages, sendMessage } =
+    const { messages: fetchedMessages, loading, error, sendMessage } =
         useConversationMessages(conversationId);
 
+    // ✅ Reset des messages optimistes quand on change de conversation
     React.useEffect(() => {
-        if (fetchedMessages) {
-            setMessages((prev) => {
-                const localIds = localIdsRef.current;
-                const fetchedById = new Map(
-                    fetchedMessages.map((m) => [m.id, m]),
-                );
-                const merged = prev.filter(
-                    (m) => localIds.has(m.id) || !fetchedById.has(m.id),
-                );
-                for (const msg of fetchedMessages) {
-                    if (!localIds.has(msg.id)) {
-                        merged.push(msg);
-                    }
-                }
-                merged.sort(
-                    (a, b) =>
-                        new Date(a.created_at).getTime() -
-                        new Date(b.created_at).getTime(),
-                );
-                return merged;
-            });
-        }
-    }, [fetchedMessages]);
+        setOptimisticMessages([]);
+        localIdsRef.current = new Set();
+        setInputValue("");
+    }, [conversationId]);
 
-    const [inputValue, setInputValue] = React.useState("");
-    const scrollAreaRef = React.useRef<HTMLDivElement>(null);
-    const messagesEndRef = React.useRef<HTMLDivElement>(null);
+    // ✅ Merge : on garde uniquement les messages optimistes qui ne sont pas encore dans fetchedMessages
+    const messages = React.useMemo(() => {
+        const fetchedIds = new Set((fetchedMessages ?? []).map((m) => m.id));
+        const pendingOptimistic = optimisticMessages.filter(
+            (m) => !fetchedIds.has(m.id)
+        );
+        return [...(fetchedMessages ?? []), ...pendingOptimistic].sort(
+            (a, b) =>
+                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+    }, [fetchedMessages, optimisticMessages]);
 
-    const scrollToBottom = () => {
+    // Scroll to bottom quand les messages changent
+    React.useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
-
-    React.useEffect(() => {
-        scrollToBottom();
     }, [messages]);
 
     const handleSendMessage = () => {
         if (!inputValue.trim()) return;
 
-        const id = Date.now().toString();
+        const id = `optimistic-${Date.now()}`;
         localIdsRef.current.add(id);
 
         const newMessage: Message = {
@@ -112,8 +68,12 @@ export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
             created_at: new Date().toISOString(),
         };
 
-        setMessages((prev) => [...prev, newMessage]);
+        // Ajout optimiste immédiat
+        setOptimisticMessages((prev) => [...prev, newMessage]);
         setInputValue("");
+
+        // Envoi réel via le hook (si implémenté)
+        sendMessage?.(inputValue);
     };
 
     const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -123,13 +83,12 @@ export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
         }
     };
 
+    // Pas de conversation sélectionnée
     if (!conversationId) {
         return (
             <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-8">
                 <Inbox className="w-16 h-16 mb-4 opacity-50" />
-                <h3 className="text-lg font-medium mb-2">
-                    No conversation selected
-                </h3>
+                <h3 className="text-lg font-medium mb-2">No conversation selected</h3>
                 <p className="text-sm">
                     Select a conversation from the sidebar to start chatting
                 </p>
@@ -138,7 +97,7 @@ export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
     }
 
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-screen">
             {/* Header */}
             <div className="border-b px-6 py-4 flex items-center justify-between bg-background">
                 <div className="flex items-center gap-3">
@@ -153,11 +112,10 @@ export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
                             {conversationUser?.name || "Unknown User"}
                         </h2>
                         <p className="text-xs text-muted-foreground">
-                            Active conversation
+                            Active conversation · #{conversationId}
                         </p>
                     </div>
                 </div>
-
                 <Badge variant="outline" className="gap-1">
                     <Clock className="w-3 h-3" />
                     Open
@@ -165,12 +123,37 @@ export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
             </div>
 
             {/* Messages */}
-            <ScrollArea className="flex-1 p-6">
+            <ScrollArea className="flex-1 p-6 bg-muted/50 overflow-scroll">
                 <div className="space-y-4 max-w-4xl mx-auto">
+
+                    {/* Loading */}
+                    {loading && (
+                        <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span className="text-sm">Chargement des messages...</span>
+                        </div>
+                    )}
+
+                    {/* Erreur */}
+                    {error && !loading && (
+                        <div className="flex items-center justify-center py-12 text-destructive text-sm">
+                            {error}
+                        </div>
+                    )}
+
+                    {/* Aucun message */}
+                    {!loading && !error && messages.length === 0 && (
+                        <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
+                            Aucun message dans cette conversation.
+                        </div>
+                    )}
+
+                    {/* Liste des messages */}
                     {messages.map((message) => {
                         const isUser = message.sender_type === "user";
                         const isBot = message.sender_type === "bot";
                         const isAdmin = message.sender_type === "admin";
+                        const isOptimistic = message.id.startsWith("optimistic-");
                         const messageDate = new Date(message.created_at);
 
                         return (
@@ -178,7 +161,7 @@ export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
                                 key={message.id}
                                 className={cn(
                                     "flex gap-3",
-                                    isAdmin && "flex-row-reverse",
+                                    isAdmin && "flex-row-reverse"
                                 )}
                             >
                                 {/* Avatar */}
@@ -194,50 +177,31 @@ export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
                                                     isAdmin
                                                         ? "bg-gradient-to-br from-green-500 to-teal-600"
                                                         : "bg-gradient-to-br from-cyan-400 to-purple-600",
-                                                    "text-white",
+                                                    "text-white"
                                                 )}
                                             >
-                                                {isAdmin
-                                                    ? "A"
-                                                    : message.sender_type?.charAt(
-                                                          0,
-                                                      ) || "U"}
+                                                {isAdmin ? "A" : message.sender_type?.charAt(0) || "U"}
                                             </AvatarFallback>
                                         </Avatar>
                                     )}
                                 </div>
 
-                                {/* Message bubble */}
+                                {/* Bulle */}
                                 <div
                                     className={cn(
                                         "flex flex-col gap-1 max-w-[70%]",
-                                        isAdmin && "items-end",
+                                        isAdmin && "items-end"
                                     )}
                                 >
                                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                        {isBot && (
-                                            <span className="font-medium">
-                                                Bot Assistant
-                                            </span>
-                                        )}
-                                        {isUser && (
-                                            <span className="font-medium">
-                                                User
-                                            </span>
-                                        )}
-                                        {isAdmin && (
-                                            <span className="font-medium">
-                                                You (Admin)
-                                            </span>
-                                        )}
+                                        {isBot && <span className="font-medium">Bot Assistant</span>}
+                                        {isUser && <span className="font-medium">User</span>}
+                                        {isAdmin && <span className="font-medium">You (Admin)</span>}
                                         <span>
-                                            {messageDate.toLocaleTimeString(
-                                                [],
-                                                {
-                                                    hour: "2-digit",
-                                                    minute: "2-digit",
-                                                },
-                                            )}
+                                            {messageDate.toLocaleTimeString([], {
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                            })}
                                         </span>
                                     </div>
 
@@ -246,21 +210,27 @@ export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
                                             "rounded-2xl px-4 py-2 text-sm",
                                             isBot && "bg-muted",
                                             isUser && "bg-secondary",
-                                            isAdmin &&
-                                                "bg-primary text-primary-foreground",
+                                            isAdmin && "bg-primary text-primary-foreground",
+                                            isOptimistic && "opacity-60"
                                         )}
                                     >
                                         {message.content}
                                     </div>
+
+                                    {/* Indicateur envoi en cours */}
+                                    {isOptimistic && (
+                                        <span className="text-xs text-muted-foreground">Envoi...</span>
+                                    )}
                                 </div>
                             </div>
                         );
                     })}
+
                     <div ref={messagesEndRef} />
                 </div>
             </ScrollArea>
 
-            {/* Input area */}
+            {/* Input */}
             <div className="border-t p-4 bg-background">
                 <div className="max-w-4xl mx-auto flex gap-2">
                     <Textarea
@@ -272,7 +242,7 @@ export function ChatView({ conversationId, conversationUser }: ChatViewProps) {
                     />
                     <Button
                         onClick={handleSendMessage}
-                        disabled={!inputValue.trim()}
+                        disabled={!inputValue.trim() || loading}
                         size="icon"
                         className="h-[60px] w-[60px] flex-shrink-0"
                     >

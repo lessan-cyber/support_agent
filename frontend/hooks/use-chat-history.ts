@@ -1,15 +1,28 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import type { Conversation, Message, ChatHistoryResponse, ConversationMessagesResponse } from '@/lib/types/chat'
-import { getAuthToken} from "@/app/actions/auth"
+import type { Conversation, Message, ConversationMessagesResponse } from '@/lib/types/chat'
 import { createClient } from '@/utils/supabase/client'
-
-const supabase = createClient()
 
 const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://localhost:8000'
 
 type ConversationStatus = "open" | "pending_human" | "all"
+
+// chat history response from backend
+interface ChatHistoryApiResponse {
+  conversations: Array<{
+    ticket_id: string;
+    user_email: string;
+    last_message_content: string;
+    last_message_at: string;
+    last_message_sender: 'user' | 'bot';
+    status: 'open' | 'pending_human';
+    message_count: number;
+  }>,
+  total_count: number,
+  limit: number,
+  offset: number
+}
 
 // Fonction pour obtenir le temps relatif
 function getRelativeTime(date: Date): string {
@@ -28,6 +41,8 @@ function getRelativeTime(date: Date): string {
 }
 
 export function useChatHistory() {
+  const supabase = createClient()
+
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -67,15 +82,15 @@ export function useChatHistory() {
         throw new Error(`Failed to fetch conversations: ${response.statusText}`)
       }
 
-      const data: ChatHistoryResponse = await response.json()
+      const data: ChatHistoryApiResponse = await response.json()
       
       // Mapper les données du backend vers le format Conversation
-      const mappedConversations = data.conversations.map((conv: any) => ({
+      const mappedConversations = data.conversations.map((conv) => ({
         ticketId: conv.ticket_id,
         userEmail: conv.user_email || 'Unknown',
         lastMessageContent: conv.last_message_content || 'No messages',
         lastMessageAt: new Date(conv.last_message_at),
-        lastMessageSender: conv.last_message_sender as 'user' | 'bot',
+        lastMessageSender: conv.last_message_sender as 'user' | 'bot' | 'admin',
         timestamp: getRelativeTime(new Date(conv.last_message_at)),
         status: conv.status as 'open' | 'pending_human',
         messageCount: conv.message_count || 0,
@@ -106,6 +121,7 @@ export function useChatHistory() {
 }
 
 export function useConversationMessages(ticketId?: string) {
+  const supabase = createClient()
   const [messages, setMessages] = useState<Message[]>([])
   const [user, setUser] = useState<{ id: string; name: string; avatar?: string } | null>(null)
   const [loading, setLoading] = useState(false)

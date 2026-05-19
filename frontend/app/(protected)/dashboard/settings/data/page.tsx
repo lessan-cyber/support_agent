@@ -197,7 +197,7 @@ export default function DataPage() {
             )}
           </Button>
           <p className="text-xs text-muted-foreground mt-2">
-            You'll receive a JSON file with all your data
+            You will receive a JSON file with all your data
           </p>
         </CardContent>
       </Card>

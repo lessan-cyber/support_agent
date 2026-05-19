@@ -1,10 +1,11 @@
 // app/(protected)/dashboard/inbox/[messageId]/page.tsx
 "use client";
 // get messageId from url params and display it in the page
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { MessageComponent } from "@/components/dashboard/message";
+import { ChatView } from "@/components/dashboard/chat-view";
 
 interface MessageData {
     user: { name: string; email: string; avatar: string };
@@ -13,6 +14,12 @@ interface MessageData {
 }
 
 export default function Message() {
+    const searchParams = useSearchParams();
+
+    const [selectedId, setSelectedId] = useState<string | undefined>(
+        searchParams.get("conversation") || undefined
+    ); // "ABC123"
+    setSelectedId(searchParams.get("conversation") || undefined);
     const { messageId } = useParams<{ messageId: string }>();
     const router = useRouter();
     const [message, setMessage] = useState<MessageData | null>(null);
@@ -87,11 +94,7 @@ export default function Message() {
     if (!message) return null;
     return (
         <div>
-            <MessageComponent
-                user={message.user}
-                content={message.content}
-                date={message.date}
-            />
+            
         </div>
     );
 }

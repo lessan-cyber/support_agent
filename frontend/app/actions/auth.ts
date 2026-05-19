@@ -13,7 +13,7 @@ export async function login(data: LoginInput) {
 
     if (!validatedFields.success) {
         return {
-            error: validatedFields.error.issues[0].message,
+            error: validatedFields.error.message,
         };
     }
 
@@ -53,7 +53,7 @@ export async function signup(data: SignupInput) {
 
     if (!validatedFields.success) {
         return {
-            error: validatedFields.error.issues[0].message,
+            error: validatedFields.error.message,
         };
     }
 
